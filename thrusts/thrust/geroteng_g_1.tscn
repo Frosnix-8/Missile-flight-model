@@ -4,6 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://crso0f6fyucp6" path="res://GerotengG1(1)_GerotengG1 Albedo.webp" id="2_m3eeq"]
 [ext_resource type="Texture2D" uid="uid://sq4qk3jhgn8v" path="res://GerotengG1(1)_GerotengG1 ORM.webp" id="3_u0wu7"]
 [ext_resource type="PackedScene" uid="uid://c515r8h7q7br8" path="res://thrusts/thrust/thrust.tscn" id="4_iwfhy"]
+[ext_resource type="AudioStream" uid="uid://dsoitvy6jdcit" path="res://thrusts/thrust/boom/missileboom.tres" id="5_m3eeq"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mgnur"]
 resource_name = "GerotengG1"
@@ -110,12 +111,48 @@ blend_shape_mode = 0
 [sub_resource type="BoxShape3D" id="BoxShape3D_7qqlg"]
 size = Vector3(0.32, 1.9366602, 0.32)
 
+[sub_resource type="PlaceholderMaterial" id="PlaceholderMaterial_7qqlg"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_7qqlg"]
+particle_flag_align_y = true
+direction = Vector3(0, 0, -1)
+spread = 108.891
+initial_velocity_min = 75.27
+initial_velocity_max = 75.27
+gravity = Vector3(0, 0, 0)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7qqlg"]
+emission_enabled = true
+emission = Color(0.9999998, 0.6439104, 0.10479637, 1)
+emission_energy_multiplier = 6.33
+
+[sub_resource type="SphereMesh" id="SphereMesh_m3eeq"]
+material = SubResource("StandardMaterial3D_7qqlg")
+radius = 0.05
+height = 0.641
+radial_segments = 32
+rings = 16
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_m3eeq"]
+margin = 0.585
+radius = 2.496
+
+[sub_resource type="GDScript" id="GDScript_m3eeq"]
+resource_name = "impactscript"
+script/source = "extends ShapeCast3D
+
+signal body_hit(collider)
+
+func _physics_process(_delta: float) -> void:
+	if get_collision_count() > 0:
+		body_hit.emit(get_collider(0))
+"
+
 [node name="Geroteng G-1" type="RigidBody3D" unique_id=1758481796]
 linear_damp_mode = 1
 angular_damp_mode = 1
-angular_damp = 4.95
 script = ExtResource("1_7qqlg")
-chase_mode = 1
+unlimited_fuel = true
 pn_gain = 5.0
 angular_agility = 6.283
 
@@ -127,31 +164,40 @@ cast_shadow = 0
 mesh = SubResource("ArrayMesh_0u4vw")
 
 [node name="ThrustEffect" parent="." unique_id=1201444138 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(-6.504255e-08, 0, 1.022, 0, 1.022, 0, -1.488, 0, -4.4673037e-08, 0, 0, 2.1891646)
+transform = Transform3D(-6.504255e-08, 0, 1.022, 0, 1.022, 0, -1.488, 0, -4.4673037e-08, 0, 0, 1.9817011)
+constant_thrust = true
 
 [node name="ThrustEffect2" parent="." unique_id=1370176058 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(1.3967111e-15, -4.2618606e-08, 0.975, -0.731, -4.2618606e-08, 0, 3.1953025e-08, -0.975, -4.2618606e-08, 0, 0.744, -0.589)
+transform = Transform3D(6.8020404e-16, -2.076291e-08, 0.475, -0.356, -2.076291e-08, 0, 1.5561254e-08, -0.475, -2.076291e-08, 0, 0.744, -0.589)
+volume = -35.21
 
 [node name="ThrustEffect5" parent="." unique_id=1019255739 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(1.396711e-15, 4.2618606e-08, 0.975, 0.731, -4.2618606e-08, 1.9431931e-22, 3.1953025e-08, 0.975, -4.2618606e-08, 0, -0.744, -0.589)
+transform = Transform3D(6.80204e-16, 2.076291e-08, 0.475, 0.356, -2.076291e-08, 9.466838e-23, 1.5561254e-08, 0.475, -2.076291e-08, 0, -0.744, -0.589)
+volume = -35.21
 
 [node name="ThrustEffect4" parent="." unique_id=1922949306 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(1.396711e-15, 4.2618606e-08, 0.975, 0.731, -4.2618606e-08, 1.2904018e-22, 3.1953025e-08, 0.975, -4.2618606e-08, 0, -0.74434274, 0.4635749)
+transform = Transform3D(6.80204e-16, 2.076291e-08, 0.475, 0.356, -2.076291e-08, 1.3849136e-22, 1.5561254e-08, 0.475, -2.076291e-08, 0, -0.74434274, 0.4635749)
+volume = -35.21
 
 [node name="ThrustEffect3" parent="." unique_id=510447756 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(1.3967111e-15, -4.2618606e-08, 0.975, -0.731, -4.2618606e-08, 0, 3.1953025e-08, -0.975, -4.2618606e-08, 0, 0.744, 0.464)
+transform = Transform3D(6.8020404e-16, -2.076291e-08, 0.475, -0.356, -2.076291e-08, 1.7544601e-23, 1.5561254e-08, -0.475, -2.076291e-08, 0, 0.744, 0.464)
+volume = -35.21
 
 [node name="ThrustEffect6" parent="." unique_id=178567755 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(0.731, 1.2785583e-07, 5.588755e-15, 0, -4.2618606e-08, 0.975, 9.585908e-08, -0.975, -4.2618606e-08, -0.7440856, -8.576022e-05, -0.58900005)
+transform = Transform3D(0.356, 6.2288734e-08, 2.7227268e-15, 0, -2.076291e-08, 0.475, 4.6683766e-08, -0.475, -2.076291e-08, -0.7440856, -8.576022e-05, -0.58900005)
+volume = -35.21
 
 [node name="ThrustEffect7" parent="." unique_id=325359602 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(-0.731, -1.4722092e-07, -6.4352303e-15, 0, -4.2618606e-08, 0.975, -1.1037793e-07, 0.975, 4.2618606e-08, 0.7439144, -8.569518e-05, -0.5889999)
+transform = Transform3D(-0.356, -7.172301e-08, -3.135112e-15, 0, -2.076291e-08, 0.475, -5.375451e-08, 0.475, 2.076291e-08, 0.7439144, -8.569518e-05, -0.5889999)
+volume = -35.21
 
 [node name="ThrustEffect8" parent="." unique_id=563624523 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(-0.731, -1.4722092e-07, -6.4352303e-15, 0, -4.2618606e-08, 0.975, -1.1037793e-07, 0.975, 4.2618606e-08, 0.74425703, -8.560315e-05, 0.46357495)
+transform = Transform3D(-0.356, -7.172301e-08, -3.135112e-15, 0, -2.076291e-08, 0.475, -5.375451e-08, 0.475, 2.076291e-08, 0.74425703, -8.560315e-05, 0.46357495)
+volume = -35.21
 
 [node name="ThrustEffect9" parent="." unique_id=886242152 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(0.731, 1.2785583e-07, 5.588755e-15, 0, -4.2618606e-08, 0.975, 9.585908e-08, -0.975, -4.2618606e-08, -0.7440857, -8.5668165e-05, 0.46399993)
+transform = Transform3D(0.356, 6.2288734e-08, 2.7227268e-15, 0, -2.076291e-08, 0.475, 4.6683766e-08, -0.475, -2.076291e-08, -0.7440857, -8.5668165e-05, 0.46399993)
+volume = -35.21
 
 [node name="missile collision" type="CollisionShape3D" parent="." unique_id=1905212927]
 transform = Transform3D(1, 0, 0, 0, -4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 2.003296e-09, -0.13423032)
@@ -160,3 +206,38 @@ shape = SubResource("BoxShape3D_7qqlg")
 [node name="Camera3D" type="Camera3D" parent="." unique_id=175413622]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1319774, 4.6010523)
 current = true
+
+[node name="VaporTrail" type="VaporTrail" parent="." unique_id=1791185932]
+config/geometry_nodepath = NodePath(".")
+visual/material = SubResource("PlaceholderMaterial_7qqlg")
+visual/size = 0.1
+visual/minimum_onscreen_size = 1.6
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.82237685)
+visible = false
+
+[node name="impact" type="GPUParticles3D" parent="." unique_id=1482855339]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.0040925)
+gi_mode = 2
+emitting = false
+amount = 677
+lifetime = 4.12
+one_shot = true
+explosiveness = 0.99
+process_material = SubResource("ParticleProcessMaterial_7qqlg")
+draw_pass_1 = SubResource("SphereMesh_m3eeq")
+
+[node name="impactcheck" type="ShapeCast3D" parent="." unique_id=1129891532]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.0181725)
+shape = SubResource("SphereShape3D_m3eeq")
+target_position = Vector3(0, 0, -1.95)
+margin = 3.51
+max_results = 1
+debug_shape_custom_color = Color(1, 0.4657101, 0.5555695, 1)
+script = SubResource("GDScript_m3eeq")
+
+[node name="explosion" type="AudioStreamPlayer3D" parent="." unique_id=417225405]
+stream = ExtResource("5_m3eeq")
+unit_size = 59.48
+
+[connection signal="body_entered" from="." to="." method="_on_body_entered"]
+[connection signal="body_hit" from="impactcheck" to="." method="_on_impactcheck_body_hit"]

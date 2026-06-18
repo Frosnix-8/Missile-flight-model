@@ -1,47 +1,30 @@
 [gd_scene format=3 uid="uid://c515r8h7q7br8"]
 
-[ext_resource type="SpriteFrames" uid="uid://crcp8mdul8gg6" path="res://thrusts/thrust/thruster_frames.tres" id="1_b0755"]
 [ext_resource type="Script" uid="uid://cj5ypqe7p652e" path="res://thrusts/thrust/thrust.gd" id="1_fqbko"]
-[ext_resource type="Material" uid="uid://t56rxw2nyl8x" path="res://thrusts/thrust/hol horse missile.tres" id="3_r6k1x"]
+[ext_resource type="Material" uid="uid://be34y8f3d4phf" path="res://thrusts/thrust/hol horse miss ile 2.tres" id="3_og8ry"]
+[ext_resource type="AudioStream" uid="uid://d3e54u0oih3t2" path="res://thrusts/thrust/boom/thrust boom.tres" id="4_og8ry"]
 
 [sub_resource type="QuadMesh" id="QuadMesh_og8ry"]
-material = ExtResource("3_r6k1x")
+material = ExtResource("3_og8ry")
 size = Vector2(1.815, 0.225)
 
 [sub_resource type="QuadMesh" id="QuadMesh_522yw"]
-material = ExtResource("3_r6k1x")
+material = ExtResource("3_og8ry")
 size = Vector2(1.815, 0.225)
 orientation = 1
 
 [node name="Node3D" type="Node3D" unique_id=1201444138]
 script = ExtResource("1_fqbko")
 
-[node name="AnimatedSprite3D" type="AnimatedSprite3D" parent="." unique_id=1630325816]
-visible = false
-cast_shadow = 0
-gi_mode = 2
-modulate = Color(109753.58, 109753.58, 109753.58, 1)
-pixel_size = 0.001
-alpha_scissor_threshold = 0.0
-alpha_hash_scale = 0.6
-sprite_frames = ExtResource("1_b0755")
-frame_progress = 0.20159422
-
-[node name="AnimatedSprite3D2" type="AnimatedSprite3D" parent="." unique_id=2122340115]
-transform = Transform3D(1, 0, 0, 0, 0.044805024, 0.9989957, 0, -0.9989957, 0.044805024, 0, 0, 0)
-visible = false
-cast_shadow = 0
-gi_mode = 2
-modulate = Color(109753.58, 109753.58, 109753.58, 1)
-pixel_size = 0.001
-alpha_scissor_threshold = 0.0
-sprite_frames = ExtResource("1_b0755")
-frame_progress = 0.20159422
-
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=745290900]
+cast_shadow = 0
 mesh = SubResource("QuadMesh_og8ry")
 
 [node name="MeshInstance3D2" type="MeshInstance3D" parent="." unique_id=1395075210]
+cast_shadow = 0
 mesh = SubResource("QuadMesh_522yw")
 
 [node name="AudioStreamPlayer3D" type="AudioStreamPlayer3D" parent="." unique_id=1493523074]
+stream = ExtResource("4_og8ry")
+volume_db = -12.631
+unit_size = 40.67

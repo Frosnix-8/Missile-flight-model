@@ -26,6 +26,8 @@ glow_blend_mode = 0
 [sub_resource type="BoxMesh" id="BoxMesh_2cq5c"]
 size = Vector3(0.2, 0.43, 0.595)
 
+[sub_resource type="SphereShape3D" id="SphereShape3D_2cq5c"]
+
 [node name="Node3D" type="Node3D" unique_id=856839224]
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1779876775]
@@ -46,16 +48,23 @@ shape = SubResource("BoxShape3D_4m83u")
 
 [node name="Geroteng G-1" parent="." unique_id=1758481796 node_paths=PackedStringArray("target") instance=ExtResource("1_4m83u")]
 transform = Transform3D(0.9589287, 0, 0.28364718, 0, 1, 0, -0.28364718, 0, 0.9589287, -64.99137, 0.07894111, 5.1756444)
-unlimited_fuel = true
-chase_mode = 0
+pn_gain = 6.0
+linear_agility = 100.0
+hide_RCS = true
 target = NodePath("../CharacterBody3D")
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1491982588]
 transform = Transform3D(0.8362957, -0.2613805, 0.4819645, -1.4141078e-08, 0.8790502, 0.47672927, -0.5482787, -0.39868665, 0.73514587, 29.238485, 25.448908, 27.83352)
+current = true
 fov = 98.5
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1868413212]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9.308807, 34.03723, 0)
+motion_mode = 1
 script = ExtResource("2_2cq5c")
 
 [node name="MeshInstance3D2" type="MeshInstance3D" parent="CharacterBody3D" unique_id=1863955519]
 mesh = SubResource("BoxMesh_2cq5c")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D" unique_id=2093656768]
+shape = SubResource("SphereShape3D_2cq5c")

@@ -15,6 +15,10 @@ run/main_scene="uid://bewifmkf8dkw6"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
+[audio]
+
+buses/default_bus_layout="uid://cgk62v8aedr5b"
+
 [physics]
 
 3d/run_on_separate_thread=true

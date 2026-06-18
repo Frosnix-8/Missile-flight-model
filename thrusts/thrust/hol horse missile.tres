@@ -6,8 +6,7 @@
 transparency = 1
 cull_mode = 2
 albedo_texture = ExtResource("1_2ska4")
-emission_enabled = true
 emission = Color(0.5372549, 1, 1, 1)
-emission_energy_multiplier = 16.0
+emission_energy_multiplier = 5.68
 emission_operator = 1
 emission_texture = ExtResource("1_2ska4")

@@ -1,0 +1,8 @@
+[gd_resource type="AudioStreamRandomizer" format=3 uid="uid://dsoitvy6jdcit"]
+
+[ext_resource type="AudioStream" uid="uid://dopshp4d2ht4x" path="res://thrusts/thrust/boom/big payment boom.ogg" id="1_akmpc"]
+
+[resource]
+random_pitch = 1.4723969
+streams_count = 1
+stream_0/stream = ExtResource("1_akmpc")
