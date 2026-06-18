@@ -149,6 +149,8 @@ func _physics_process(_delta: float) -> void:
 "
 
 [node name="Geroteng G-1" type="RigidBody3D" unique_id=1758481796]
+mass = 85.0
+inertia = Vector3(1, 1, 1)
 linear_damp_mode = 1
 angular_damp_mode = 1
 script = ExtResource("1_7qqlg")

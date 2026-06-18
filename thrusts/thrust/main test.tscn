@@ -55,7 +55,6 @@ target = NodePath("../CharacterBody3D")
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1491982588]
 transform = Transform3D(0.8362957, -0.2613805, 0.4819645, -1.4141078e-08, 0.8790502, 0.47672927, -0.5482787, -0.39868665, 0.73514587, 29.238485, 25.448908, 27.83352)
-current = true
 fov = 98.5
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1868413212]

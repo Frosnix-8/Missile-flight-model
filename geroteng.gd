@@ -71,6 +71,8 @@ func _ready() -> void:
 		if !show_all_thrusters:
 			x.hide()	
 	linear_velocity = global_transform.basis.z * launch_speed
+	
+	
 
 
 func _physics_process(delta: float) -> void:
