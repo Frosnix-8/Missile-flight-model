@@ -1,0 +1,7 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://be34y8f3d4phf"]
+
+[ext_resource type="Shader" uid="uid://c7d7sskcrjsae" path="res://thrusts/thrust/thrust_visual.tres" id="1_xt4cb"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_xt4cb")

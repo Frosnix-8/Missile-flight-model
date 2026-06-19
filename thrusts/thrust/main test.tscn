@@ -1,0 +1,94 @@
+[gd_scene format=3 uid="uid://bewifmkf8dkw6"]
+
+[ext_resource type="PackedScene" uid="uid://cen33ej277jql" path="res://geroteng_g_1.tscn" id="1_4m83u"]
+[ext_resource type="Script" uid="uid://b2s2db8thha7o" path="res://debugpoint.gd" id="2_2cq5c"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_4m83u"]
+sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
+ground_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
+
+[sub_resource type="Sky" id="Sky_2cq5c"]
+sky_material = SubResource("ProceduralSkyMaterial_4m83u")
+
+[sub_resource type="Environment" id="Environment_ntarn"]
+background_mode = 2
+sky = SubResource("Sky_2cq5c")
+tonemap_mode = 2
+glow_enabled = true
+glow_intensity = 1.68
+glow_strength = 1.08
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.007
+
+[sub_resource type="BoxMesh" id="BoxMesh_dmihs"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_4m83u"]
+
+[sub_resource type="GDScript" id="GDScript_2cq5c"]
+resource_name = "look at smth"
+script/source = "extends Camera3D
+@export var target : Node3D
+var blacklist : Array[Missile_Guided]
+
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(_delta: float) -> void:
+	if target:
+		if target is Missile_Guided and target.hit_target:
+			blacklist.append(target)
+			target = null
+			return
+		global_basis = global_transform.looking_at(target.position).basis
+	else:
+		for x in get_parent().get_children(0):
+			if x is Missile_Guided and x not in blacklist:
+				target = x
+"
+
+[sub_resource type="BoxMesh" id="BoxMesh_2cq5c"]
+size = Vector3(0.2, 0.43, 0.595)
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_2cq5c"]
+
+[node name="Node3D" type="Node3D" unique_id=856839224]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1779876775]
+transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 0, 0)
+shadow_enabled = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1843546918]
+environment = SubResource("Environment_ntarn")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=86400150]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.17243445, -6.2542534, 0)
+mesh = SubResource("BoxMesh_dmihs")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="MeshInstance3D" unique_id=1061029723]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MeshInstance3D/StaticBody3D" unique_id=1088850908]
+shape = SubResource("BoxShape3D_4m83u")
+disabled = true
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1491982588]
+transform = Transform3D(0.8362957, -0.2613805, 0.48196447, -1.4141078e-08, 0.8790502, 0.47672927, -0.5482787, -0.39868665, 0.73514587, -1.2864866, 23.548588, 2.4788017)
+doppler_tracking = 1
+current = true
+fov = 98.5
+script = SubResource("GDScript_2cq5c")
+
+[node name="debugbody" type="CharacterBody3D" parent="." unique_id=1868413212]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.32721615, 22.516272, -0.05506754)
+motion_mode = 1
+script = ExtResource("2_2cq5c")
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="debugbody" unique_id=1863955519]
+mesh = SubResource("BoxMesh_2cq5c")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="debugbody" unique_id=2093656768]
+shape = SubResource("SphereShape3D_2cq5c")
+disabled = true
+
+[node name="Geroteng G-1" parent="." unique_id=1758481796 node_paths=PackedStringArray("target") instance=ExtResource("1_4m83u")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -195.5314, 56.318985, 0)
+chase_mode = 1
+target = NodePath("../debugbody")

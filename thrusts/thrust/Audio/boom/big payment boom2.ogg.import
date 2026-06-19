@@ -1,0 +1,19 @@
+[remap]
+
+importer="oggvorbisstr"
+type="AudioStreamOggVorbis"
+uid="uid://xuqefty4i1ja"
+path="res://.godot/imported/big payment boom2.ogg-dfe0f167c385d424d4394bf4aa3b3e83.oggvorbisstr"
+
+[deps]
+
+source_file="res://thrusts/thrust/Audio/boom/big payment boom2.ogg"
+dest_files=["res://.godot/imported/big payment boom2.ogg-dfe0f167c385d424d4394bf4aa3b3e83.oggvorbisstr"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

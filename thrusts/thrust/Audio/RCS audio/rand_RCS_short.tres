@@ -1,0 +1,14 @@
+[gd_resource type="AudioStreamRandomizer" format=3 uid="uid://deyya3av0nrrm"]
+
+[ext_resource type="AudioStream" uid="uid://bufhbmjtc1q0l" path="res://thrusts/thrust/Audio/RCS audio/rcs_short1.wav" id="1_knj4a"]
+[ext_resource type="AudioStream" uid="uid://bpg8eu6k4g65j" path="res://thrusts/thrust/Audio/RCS audio/rcs_short2.wav" id="2_fk6ro"]
+[ext_resource type="AudioStream" uid="uid://ywlede77rs1k" path="res://thrusts/thrust/Audio/RCS audio/rcs_short3.wav" id="3_65dcq"]
+[ext_resource type="AudioStream" uid="uid://cl78oj13i3kke" path="res://thrusts/thrust/Audio/RCS audio/rcs_short4.wav" id="4_s3btt"]
+
+[resource]
+playback_mode = 1
+streams_count = 4
+stream_0/stream = ExtResource("1_knj4a")
+stream_1/stream = ExtResource("2_fk6ro")
+stream_2/stream = ExtResource("3_65dcq")
+stream_3/stream = ExtResource("4_s3btt")

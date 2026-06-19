@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://dluq32dh51n8s"
+path="res://.godot/imported/RCS4.wav-3706c7873591cbe71891b6d2ea3212cd.sample"
+
+[deps]
+
+source_file="res://thrusts/thrust/Audio/RCS audio/RCS4.wav"
+dest_files=["res://.godot/imported/RCS4.wav-3706c7873591cbe71891b6d2ea3212cd.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=false
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=true
+edit/loop_mode=0
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=0

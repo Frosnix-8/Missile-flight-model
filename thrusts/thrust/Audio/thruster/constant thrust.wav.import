@@ -1,0 +1,24 @@
+[remap]
+
+importer="wav"
+type="AudioStreamWAV"
+uid="uid://ds8a6p3onpitk"
+path="res://.godot/imported/constant thrust.wav-ebd214a8ca71ae57bbd1964ff492c671.sample"
+
+[deps]
+
+source_file="res://thrusts/thrust/Audio/thruster/constant thrust.wav"
+dest_files=["res://.godot/imported/constant thrust.wav-ebd214a8ca71ae57bbd1964ff492c671.sample"]
+
+[params]
+
+force/8_bit=false
+force/mono=true
+force/max_rate=false
+force/max_rate_hz=44100
+edit/trim=false
+edit/normalize=true
+edit/loop_mode=2
+edit/loop_begin=0
+edit/loop_end=-1
+compress/mode=0
