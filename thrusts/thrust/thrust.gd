@@ -12,6 +12,7 @@ func _ready() -> void:
 func _physics_process(_delta: float) -> void:
 	if constant_thrust and !off:
 		_play_or_resume()
+		$AudioStreamPlayer3D.pitch_scale = 0.8
 		return
 	time_since_last += 1
 	if !visible and time_since_last > 10:
@@ -25,13 +26,17 @@ func _randf_range_chose() -> float:
 
 func how() -> void:
 	off = false
-	if time_since_last > randi_range(1, 30) and !visible:
+	if time_since_last > randi_range(1, 40) and !visible:
 		_play_or_resume()
 		time_since_last = 0
 	show()
 	
 	
 func shutdown() -> void:
+	if constant_thrust:
+		var tween := create_tween()
+		tween.tween_property($AudioStreamPlayer3D, "volume_db", -80, 0.5)
+		tween.tween_callback(func(): queue_free())
 	$AudioStreamPlayer3D.stop()
 	off = true
 func _play_or_resume() -> void:

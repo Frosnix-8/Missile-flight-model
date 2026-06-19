@@ -33,6 +33,7 @@ var all_thrusters : Array[Missile_thruster]
 @export_category("Missile specifications")
 ##Speed when launched from ship. 
 @export var launch_speed: float = 2.0
+@export var max_straight_line_speed : float = 1000
 ##agility of the missile, IE the strength with which it can thrust sideways. 
 ##by definition, agility is the max sideways acceleration of the missile.
 @export var linear_agility := 75.0
@@ -70,7 +71,7 @@ func _ready() -> void:
 			push_error(self, " failed to start thruster animation on ", x)
 		if !show_all_thrusters:
 			x.hide()	
-	linear_velocity = global_transform.basis.z * launch_speed
+	apply_central_impulse(basis * Vector3(0,0,-launch_speed))
 	
 	
 
@@ -78,7 +79,8 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	thrust_time -= delta
 	if (thrust_time <= 0 and !unlimited_fuel )or hit_target:
-		missile_thrust(Vector3.ZERO, true, true)
+		for x in all_thrusters:
+			x.hide()
 		if explode_on_fuel_loss:
 			missile_impact(null)
 		return
@@ -87,7 +89,8 @@ func _physics_process(delta: float) -> void:
 	compute_rotation_thrust()
 	print("missile has a velocity of ", linear_velocity.length())
 	
-	collision_check.target_position = collision_check.to_local(linear_velocity) * delta
+	collision_check.target_position = collision_check.to_local(linear_velocity) * delta * 0.5
+	
 	
 	
 func compute_thrust() -> void:
@@ -114,9 +117,9 @@ func compute_strafe_thrust() -> void:
 			final_thrust[axis] = -sign(position_error[axis])
 		else:
 			final_thrust[axis] = sign(position_error[axis])
-	var hide: bool = Vector2(local_error.x, local_error.y).length() < 2.0
+	var _hide: bool = Vector2(local_error.x, local_error.y).length() < 2.0
 	#print("strafing hide ",hide, " ; ",Vector2(local_error.x, local_error.y).length())
-	missile_thrust(final_thrust, true, hide)
+	missile_thrust(final_thrust, true, _hide)
 	
 func compute_rotation_thrust() -> void:
 	var rotation_error: Vector3 = get_rotation_error()
@@ -137,11 +140,11 @@ func compute_rotation_thrust() -> void:
 		final_torque = -rotation_axis
 	else:
 		final_torque = rotation_axis
-	var hide := false
+	var _hide := false
 	if final_torque.length() < 0.2:
-		hide = true
+		_hide = true
 	#print("rotating hide? ",hide)
-	missile_rotation(final_torque, false, false, hide)
+	missile_rotation(final_torque, false, false, _hide)
 	
 		
 ##computes target_position. if the target object is moving, it will change accordingly.
@@ -195,10 +198,10 @@ func get_pn_aim_point(_target_position: Vector3, _target_velocity: Vector3) -> V
 func compute_pn_thrust() -> void:
 	var aim_point: Vector3 = get_pn_aim_point(target_position, target_velocity)
 	var pn_direction: Vector3 = (aim_point - global_position).limit_length(linear_agility) / linear_agility
-	var hide := false
+	var _hide := false
 	if pn_direction.length() <= 0.5:
-		hide = true
-	missile_thrust(pn_direction, true, hide)
+		_hide = true
+	missile_thrust(pn_direction, true, _hide)
 	
 func get_position_error() -> Vector3:
 	#print(target_position - global_position)
@@ -213,7 +216,7 @@ func get_rotation_error() -> Vector3:
 	return rotation_diff.get_axis() * rotation_diff.get_angle()
 
 ##simulated thrust in the direction.
-func missile_thrust(direction: Vector3 = Vector3.ZERO, reset := false, hide := false) -> void:
+func missile_thrust(direction: Vector3 = Vector3.ZERO, reset := false, _hide := false) -> void:
 	if reset:
 		for x in all_thrusters:
 			x.hide()
@@ -228,7 +231,7 @@ func missile_thrust(direction: Vector3 = Vector3.ZERO, reset := false, hide := f
 	if !enable_rear_thrust:
 		direction.z = -1
 	
-	if !hide and !hide_RCS:
+	if !_hide and !hide_RCS:
 		match sign(direction.x): 
 			1.0:
 				#print("thrust right")
@@ -266,7 +269,7 @@ func missile_force_rotation(face: Quaternion, weight := 20.0) -> void:
 	current_rotation = current_rotation.slerp(face, min(weight * get_physics_process_delta_time(), 1.0))
 	basis = Basis(current_rotation)
 
-func missile_rotation(direction: Vector3 = Vector3.ZERO, reset := true, visual_only := false, hide := false) -> void:
+func missile_rotation(direction: Vector3 = Vector3.ZERO, reset := true, visual_only := false, _hide := false) -> void:
 	if reset:
 		for x in all_thrusters:
 			x.hide()
@@ -277,7 +280,7 @@ func missile_rotation(direction: Vector3 = Vector3.ZERO, reset := true, visual_o
 	var temporary_multiplier := 1.0
 	if direction.length() < deg_to_rad(15):
 		temporary_multiplier = 0.5
-	if !hide and !hide_RCS:
+	if !_hide and !hide_RCS:
 		match sign(direction.x):
 			1.0:
 				Thrust_up.how()
@@ -299,6 +302,8 @@ func missile_rotation(direction: Vector3 = Vector3.ZERO, reset := true, visual_o
 				Thrust_left.hide()
 	if visual_only:
 		return
+	#if !direction.z:
+		#direction.z = randf_range(-0.2, 0.2)
 	apply_torque(basis * direction * angular_agility * temporary_multiplier)
 	
 
@@ -306,17 +311,33 @@ func missile_rotation(direction: Vector3 = Vector3.ZERO, reset := true, visual_o
 func missile_impact(collider: Node3D) -> void:
 	if hit_target:
 		return
+	var root:= get_tree().root.get_child(0)
+	#var after_death := [$impact,$explosion,$VaporTrail]
+	global_position = collider.global_position
+	#$explosion.pitch_scale = 10
+	
 	$explosion.play()
 	$impact.emitting = true
-	for x in all_thrusters:
-		x.shutdown()
-	$"missile final_001".hide()
-	$Text_008.hide()
+	for x:Missile_thruster in all_thrusters:
+		if x.constant_thrust:
+			x.shutdown()
+			pass
+		x.queue_free()
+	set_physics_process(false)
+	$"missile final_001".queue_free()
+	$Text_008.queue_free()
 	$impactcheck.queue_free()
+	$VaporTrail.update_interval= 0.1
 	thrust_time = -1
 	hit_target = true
+	freeze = true
+	#$impact.reparent(root)
+	#$explosion.reparent(root)
+	#$VaporTrail.reparent(root)
 	
-	
+	print("freed ", self)
+	await get_tree().create_timer(8.0).timeout
+	queue_free()
 	
 	
 

@@ -17,11 +17,24 @@ tonemap_mode = 2
 glow_enabled = true
 glow_intensity = 1.68
 glow_strength = 1.08
-glow_blend_mode = 0
+volumetric_fog_enabled = true
 
 [sub_resource type="BoxMesh" id="BoxMesh_dmihs"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_4m83u"]
+
+[sub_resource type="GDScript" id="GDScript_2cq5c"]
+resource_name = "look at smth"
+script/source = "extends Camera3D
+@export var target : Node3D
+
+
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(delta: float) -> void:
+	if target:
+		global_basis = global_transform.looking_at(target.position).basis
+"
 
 [sub_resource type="BoxMesh" id="BoxMesh_2cq5c"]
 size = Vector3(0.2, 0.43, 0.595)
@@ -47,18 +60,22 @@ mesh = SubResource("BoxMesh_dmihs")
 shape = SubResource("BoxShape3D_4m83u")
 
 [node name="Geroteng G-1" parent="." unique_id=1758481796 node_paths=PackedStringArray("target") instance=ExtResource("1_4m83u")]
-transform = Transform3D(0.9589287, 0, 0.28364718, 0, 1, 0, -0.28364718, 0, 0.9589287, -64.99137, 0.07894111, 5.1756444)
-pn_gain = 6.0
-linear_agility = 100.0
-hide_RCS = true
+transform = Transform3D(0.057790563, 0, -0.99832875, 0, 1, 0, 0.99832875, 0, 0.057790563, -118.09182, 0.07894111, -285.60056)
+continuous_cd = false
+unlimited_fuel = true
+chase_mode = 0
+launch_speed = 214.58
 target = NodePath("../CharacterBody3D")
 
-[node name="Camera3D" type="Camera3D" parent="." unique_id=1491982588]
-transform = Transform3D(0.8362957, -0.2613805, 0.4819645, -1.4141078e-08, 0.8790502, 0.47672927, -0.5482787, -0.39868665, 0.73514587, 29.238485, 25.448908, 27.83352)
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1491982588 node_paths=PackedStringArray("target")]
+transform = Transform3D(0.8362957, -0.2613805, 0.48196447, -1.4141078e-08, 0.8790502, 0.47672927, -0.5482787, -0.39868665, 0.73514587, 2.135376, 23.548588, -0.88696814)
+doppler_tracking = 1
 fov = 98.5
+script = SubResource("GDScript_2cq5c")
+target = NodePath("../Geroteng G-1")
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1868413212]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9.308807, 34.03723, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -23.69358, 1.1176221, -9.536743e-07)
 motion_mode = 1
 script = ExtResource("2_2cq5c")
 

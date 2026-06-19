@@ -54,6 +54,7 @@ operator = 1
 
 [resource]
 modes/cull = 2
+flags/shadows_disabled = true
 nodes/fragment/0/position = Vector2(380, 160)
 nodes/fragment/2/node = SubResource("VisualShaderNodeTexture_s3qk6")
 nodes/fragment/2/position = Vector2(-280, 20)
