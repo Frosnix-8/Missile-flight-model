@@ -255,11 +255,8 @@ func missile_thrust(direction: Vector3 = Vector3.ZERO, reset := false, _hide := 
 			#_:
 				#print("didn't thrust vertically")
 	if !hit_target and thrust_time >= 0:
-		match sign(direction.z):
-			1.0: 
-				Thrust_forward.how()
-			-1.0:
-				Thrust_forward.show()
+		Thrust_forward.how()
+		#Thrust_forward.neopitch = 0.8 * clamp((linear_velocity.length()/60.0) * 0.8, 1.0, 1.7)
 
 	#print("applying force ", direction)
 	apply_central_force(basis * (direction * mass * Vector3(linear_agility,linear_agility,forward_acceleration)) )

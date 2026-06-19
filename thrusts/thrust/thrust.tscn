@@ -30,5 +30,5 @@ unit_size = 53.81
 pitch_scale = 1.49
 autoplay = true
 attenuation_filter_cutoff_hz = 3985.0
-attenuation_filter_db = -55.7
+attenuation_filter_db = -19.3
 doppler_tracking = 1

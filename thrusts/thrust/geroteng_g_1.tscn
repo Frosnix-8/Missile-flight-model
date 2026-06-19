@@ -238,10 +238,10 @@ script = SubResource("GDScript_m3eeq")
 [node name="explosion" type="AudioStreamPlayer3D" parent="." unique_id=417225405]
 stream = ExtResource("5_m3eeq")
 volume_db = -13.459
-unit_size = 22.15
+unit_size = 31.49
 pitch_scale = 1.25
-attenuation_filter_cutoff_hz = 1348.0
-attenuation_filter_db = -15.0
+attenuation_filter_cutoff_hz = 5001.0
+attenuation_filter_db = -11.8
 doppler_tracking = 1
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1101238135]

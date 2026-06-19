@@ -63,19 +63,19 @@ shape = SubResource("BoxShape3D_4m83u")
 transform = Transform3D(0.057790563, 0, -0.99832875, 0, 1, 0, 0.99832875, 0, 0.057790563, -118.09182, 0.07894111, -285.60056)
 continuous_cd = false
 unlimited_fuel = true
-chase_mode = 0
 launch_speed = 214.58
 target = NodePath("../CharacterBody3D")
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1491982588 node_paths=PackedStringArray("target")]
 transform = Transform3D(0.8362957, -0.2613805, 0.48196447, -1.4141078e-08, 0.8790502, 0.47672927, -0.5482787, -0.39868665, 0.73514587, 2.135376, 23.548588, -0.88696814)
 doppler_tracking = 1
+current = true
 fov = 98.5
 script = SubResource("GDScript_2cq5c")
 target = NodePath("../Geroteng G-1")
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1868413212]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -23.69358, 1.1176221, -9.536743e-07)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.32721615, 22.516272, -0.05506754)
 motion_mode = 1
 script = ExtResource("2_2cq5c")
 
@@ -83,4 +83,5 @@ script = ExtResource("2_2cq5c")
 mesh = SubResource("BoxMesh_2cq5c")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D" unique_id=2093656768]
+visible = false
 shape = SubResource("SphereShape3D_2cq5c")

@@ -5,6 +5,7 @@ class_name Missile_thruster
 @export var volume := 0.0
 var time_since_last := 0
 var off := false
+var neopitch := 0.8
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	$AudioStreamPlayer3D.volume_db = volume
@@ -12,7 +13,7 @@ func _ready() -> void:
 func _physics_process(_delta: float) -> void:
 	if constant_thrust and !off:
 		_play_or_resume()
-		$AudioStreamPlayer3D.pitch_scale = 0.8
+		$AudioStreamPlayer3D.pitch_scale = neopitch
 		return
 	time_since_last += 1
 	if !visible and time_since_last > 10:
