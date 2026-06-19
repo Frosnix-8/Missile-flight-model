@@ -18,6 +18,7 @@ glow_enabled = true
 glow_intensity = 1.68
 glow_strength = 1.08
 volumetric_fog_enabled = true
+volumetric_fog_density = 0.007
 
 [sub_resource type="BoxMesh" id="BoxMesh_dmihs"]
 
@@ -27,13 +28,21 @@ volumetric_fog_enabled = true
 resource_name = "look at smth"
 script/source = "extends Camera3D
 @export var target : Node3D
-
+var blacklist : Array[Missile_Guided]
 
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if target:
+		if target is Missile_Guided and target.hit_target:
+			blacklist.append(target)
+			target = null
+			return
 		global_basis = global_transform.looking_at(target.position).basis
+	else:
+		for x in get_parent().get_children(0):
+			if x is Missile_Guided and x not in blacklist:
+				target = x
 "
 
 [sub_resource type="BoxMesh" id="BoxMesh_2cq5c"]
@@ -59,29 +68,24 @@ mesh = SubResource("BoxMesh_dmihs")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="MeshInstance3D/StaticBody3D" unique_id=1088850908]
 shape = SubResource("BoxShape3D_4m83u")
 
-[node name="Geroteng G-1" parent="." unique_id=1758481796 node_paths=PackedStringArray("target") instance=ExtResource("1_4m83u")]
-transform = Transform3D(0.057790563, 0, -0.99832875, 0, 1, 0, 0.99832875, 0, 0.057790563, -118.09182, 0.07894111, -285.60056)
-continuous_cd = false
-unlimited_fuel = true
-launch_speed = 214.58
-target = NodePath("../CharacterBody3D")
-
-[node name="Camera3D" type="Camera3D" parent="." unique_id=1491982588 node_paths=PackedStringArray("target")]
-transform = Transform3D(0.8362957, -0.2613805, 0.48196447, -1.4141078e-08, 0.8790502, 0.47672927, -0.5482787, -0.39868665, 0.73514587, 2.135376, 23.548588, -0.88696814)
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1491982588]
+transform = Transform3D(0.8362957, -0.2613805, 0.48196447, -1.4141078e-08, 0.8790502, 0.47672927, -0.5482787, -0.39868665, 0.73514587, -1.2864866, 23.548588, 2.4788017)
 doppler_tracking = 1
 current = true
 fov = 98.5
 script = SubResource("GDScript_2cq5c")
-target = NodePath("../Geroteng G-1")
 
-[node name="CharacterBody3D" type="CharacterBody3D" parent="." unique_id=1868413212]
+[node name="debugbody" type="CharacterBody3D" parent="." unique_id=1868413212]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.32721615, 22.516272, -0.05506754)
 motion_mode = 1
 script = ExtResource("2_2cq5c")
 
-[node name="MeshInstance3D2" type="MeshInstance3D" parent="CharacterBody3D" unique_id=1863955519]
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="debugbody" unique_id=1863955519]
 mesh = SubResource("BoxMesh_2cq5c")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="CharacterBody3D" unique_id=2093656768]
-visible = false
+[node name="CollisionShape3D" type="CollisionShape3D" parent="debugbody" unique_id=2093656768]
 shape = SubResource("SphereShape3D_2cq5c")
+
+[node name="Geroteng G-1" parent="." unique_id=1758481796 node_paths=PackedStringArray("target") instance=ExtResource("1_4m83u")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -195.5314, 56.318985, 0)
+target = NodePath("../debugbody")

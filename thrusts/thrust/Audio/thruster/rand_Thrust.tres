@@ -1,0 +1,8 @@
+[gd_resource type="AudioStreamRandomizer" format=3 uid="uid://d3e54u0oih3t2"]
+
+[ext_resource type="AudioStream" uid="uid://ds8a6p3onpitk" path="res://thrusts/thrust/Audio/thruster/constant thrust.wav" id="1_3mv70"]
+
+[resource]
+random_pitch = 1.041202
+streams_count = 1
+stream_0/stream = ExtResource("1_3mv70")

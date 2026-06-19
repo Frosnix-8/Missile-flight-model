@@ -2,20 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://sq4qk3jhgn8v"
-path.s3tc="res://.godot/imported/GerotengG1(1)_GerotengG1 ORM.webp-054c474dc6218fd3ec9c253f2911a7b1.s3tc.ctex"
+uid="uid://crso0f6fyucp6"
+path.s3tc="res://.godot/imported/GerotengG1(1)_GerotengG1 Albedo.webp-30acb3f7d41878d567e80666b95b959e.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "8b41b63552fefcf3e325564d3210171d"
+"md5": "067b3f0429eec94f804252e6c6aa27ed"
 }
 
 [deps]
 
-source_file="res://GerotengG1(1)_GerotengG1 ORM.webp"
-dest_files=["res://.godot/imported/GerotengG1(1)_GerotengG1 ORM.webp-054c474dc6218fd3ec9c253f2911a7b1.s3tc.ctex"]
+source_file="res://meshes/GerotengG1(1)_GerotengG1 Albedo.webp"
+dest_files=["res://.godot/imported/GerotengG1(1)_GerotengG1 Albedo.webp-30acb3f7d41878d567e80666b95b959e.s3tc.ctex"]
 
 [params]
 

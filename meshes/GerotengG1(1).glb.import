@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://bp18cjik5iqo4"
-path="res://.godot/imported/GerotengG1(1).glb-8ddbfdbc0d63d9ab4a3aa8324d8abd09.scn"
+path="res://.godot/imported/GerotengG1(1).glb-d648c84ff26a8cee0686a0481ca68d21.scn"
 
 [deps]
 
-source_file="res://GerotengG1(1).glb"
-dest_files=["res://.godot/imported/GerotengG1(1).glb-8ddbfdbc0d63d9ab4a3aa8324d8abd09.scn"]
+source_file="res://meshes/GerotengG1(1).glb"
+dest_files=["res://.godot/imported/GerotengG1(1).glb-d648c84ff26a8cee0686a0481ca68d21.scn"]
 
 [params]
 

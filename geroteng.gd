@@ -1,4 +1,11 @@
 extends RigidBody3D
+class_name Missile_Guided
+static var instance_count := 0
+static var RCS_instance_count := 0
+static var cached_camera : Camera3D
+static var cached_camera_frame : int = 0
+var RCS_this_id := 0
+var this_id := 0
 @export_category("Debug")
 @export var show_all_thrusters := false
 @export var unlimited_fuel := false
@@ -25,6 +32,9 @@ enum chasemodes {
 @onready var Thrust_down_aft : Missile_thruster = $ThrustEffect3
 
 @onready var collision_check : ShapeCast3D = $impactcheck
+@onready var audio_main_thrust : AudioStreamPlayer3D = $MAINTHRUST
+@onready var audio_RCS : AudioStreamPlayer3D = $RCS
+
 ##empty? missile can no longer maneuver in vacuum
 var thrust_time := 10.0
 
@@ -46,6 +56,11 @@ var all_thrusters : Array[Missile_thruster]
 @export_category("Visual Parameters")
 @export var hide_RCS := false
 
+@export_category("Audio Parameters")
+@export var main_thrust_volume_db := 0.0
+@export var thrust_volume_db := 0.0
+@export var explosion_volume_db := -19
+@export var master_effect_volume_db := 0.0
 @export_category("Target")
 @export var target : Node3D
 
@@ -55,8 +70,15 @@ var is_facing_target :bool= false
 var no_target := true
 var hit_target := false
 
+var tick_avionics := 0
+var ratio_calculate_avionics := 1
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
+	instance_count += 1
+	this_id = instance_count
+	if !hide_RCS:
+		RCS_instance_count += 1
+		RCS_this_id = RCS_instance_count
 	all_thrusters.append(Thrust_forward)
 	all_thrusters.append(Thrust_down)
 	all_thrusters.append(Thrust_down_aft)
@@ -70,24 +92,43 @@ func _ready() -> void:
 		if x.animation_start() != Error.OK:
 			push_error(self, " failed to start thruster animation on ", x)
 		if !show_all_thrusters:
-			x.hide()	
+			x.ide()
+	audio_RCS.volume_db = thrust_volume_db
+	audio_main_thrust.volume_db = main_thrust_volume_db
+	$explosion.volume_db = explosion_volume_db
 	apply_central_impulse(basis * Vector3(0,0,-launch_speed))
+	
 	
 	
 
 
 func _physics_process(delta: float) -> void:
+	tick_avionics += 1
+	if tick_avionics % 15 == 0:
+		compute_tick_avionics_ratio()
+		allow_RCS()
+	RCS_audio_queued = false
 	thrust_time -= delta
 	if (thrust_time <= 0 and !unlimited_fuel )or hit_target:
 		for x in all_thrusters:
-			x.hide()
+			x.queue_free()
 		if explode_on_fuel_loss:
 			missile_impact(null)
+		else:
+			set_physics_process(false)
+			for x in get_children():
+				if x is not MeshInstance3D or x is not VaporTrail:
+					queue_free()
+			await get_tree().create_timer(10).timeout
+			queue_free()
 		return
-	compute_target_position(delta)
-	compute_thrust()
-	compute_rotation_thrust()
-	print("missile has a velocity of ", linear_velocity.length())
+	if tick_avionics % ratio_calculate_avionics == 0:
+		compute_target_position(delta)
+		compute_thrust()
+		compute_rotation_thrust()
+	_rcs_audio()
+	#print("missile has a velocity of ", linear_velocity.length())
+	
 	
 	collision_check.target_position = collision_check.to_local(linear_velocity) * delta * 0.5
 	
@@ -107,8 +148,8 @@ func compute_thrust() -> void:
 
 func compute_strafe_thrust() -> void:
 	var position_error := get_position_error()
-	
-	var local_error: Vector3 = basis.inverse() * position_error
+	var inverse_basis := basis.inverse()
+	var local_error: Vector3 = inverse_basis * position_error
 	var final_thrust := Vector3.ZERO
 	for axis in range(3):
 		var distance_to_stop := (linear_velocity[axis] * linear_velocity[axis]) / (2.0 * linear_agility)
@@ -119,7 +160,7 @@ func compute_strafe_thrust() -> void:
 			final_thrust[axis] = sign(position_error[axis])
 	var _hide: bool = Vector2(local_error.x, local_error.y).length() < 2.0
 	#print("strafing hide ",hide, " ; ",Vector2(local_error.x, local_error.y).length())
-	missile_thrust(final_thrust, true, _hide)
+	missile_thrust(inverse_basis * final_thrust, true, _hide)
 	
 func compute_rotation_thrust() -> void:
 	var rotation_error: Vector3 = get_rotation_error()
@@ -215,45 +256,38 @@ func get_rotation_error() -> Vector3:
 	var rotation_diff: Quaternion = Quaternion(current_forward, desired_forward)
 	return rotation_diff.get_axis() * rotation_diff.get_angle()
 
-##simulated thrust in the direction.
+##simulated thrust in the direction. direction must be localized
 func missile_thrust(direction: Vector3 = Vector3.ZERO, reset := false, _hide := false) -> void:
 	if reset:
 		for x in all_thrusters:
-			x.hide()
-	#a missile never retreats, it always goes forward.
-	#direction.z = sign(direction.z)
-	#direction.x = sign(direction.x)
-	#direction.y = sign(direction.y)
-	#right or left
-	direction = basis.inverse() * direction
+			x.ide()
+
+	
 	if disable_strafe:
 		direction = Vector3(0,0,direction.z)
 	if !enable_rear_thrust:
 		direction.z = -1
 	
 	if !_hide and !hide_RCS:
+		#left or right
 		match sign(direction.x): 
 			1.0:
-				#print("thrust right")
 				Thrust_right.how()
 				Thrust_right_aft.how()
 			-1.0:
-				#print("thrust left")
 				Thrust_left.how()
 				Thrust_left_aft.how()
-
+		
 		#up or down
 		match sign(direction.y):
 			1.0:
-				#print("thrust up")
 				Thrust_up.how()
 				Thrust_up_aft.how()
+				
 			-1.0:
-				#print("thrust down")
 				Thrust_down.how()
 				Thrust_down_aft.how()
-			#_:
-				#print("didn't thrust vertically")
+		RCS_audio_queued = true
 	if !hit_target and thrust_time >= 0:
 		Thrust_forward.how()
 		#Thrust_forward.neopitch = 0.8 * clamp((linear_velocity.length()/60.0) * 0.8, 1.0, 1.7)
@@ -269,34 +303,35 @@ func missile_force_rotation(face: Quaternion, weight := 20.0) -> void:
 func missile_rotation(direction: Vector3 = Vector3.ZERO, reset := true, visual_only := false, _hide := false) -> void:
 	if reset:
 		for x in all_thrusters:
-			x.hide()
+			x.ide()
 	direction = basis.inverse() * direction
-	#direction.x = sign(direction.x)
-	#direction.y = sign(direction.z)
-	#direction.z = sign(direction.z)
 	var temporary_multiplier := 1.0
 	if direction.length() < deg_to_rad(15):
 		temporary_multiplier = 0.5
+	
 	if !_hide and !hide_RCS:
+
 		match sign(direction.x):
 			1.0:
 				Thrust_up.how()
 				Thrust_down_aft.how()
-				Thrust_down.hide()
+				Thrust_down.ide()
 			-1.0:
 				Thrust_down.how()
 				Thrust_up_aft.how()
-				Thrust_up.hide()
+				Thrust_up.ide()
 
 		match sign(direction.y):
 			1.0:
 				Thrust_left.how()
 				Thrust_right_aft.how()
-				Thrust_left.hide()
+				Thrust_left.ide()
 			-1.0:
 				Thrust_right.how()
 				Thrust_left_aft.how()
-				Thrust_left.hide()
+				Thrust_left.ide()
+		RCS_audio_queued = true
+		
 	if visual_only:
 		return
 	#if !direction.z:
@@ -308,12 +343,14 @@ func missile_rotation(direction: Vector3 = Vector3.ZERO, reset := true, visual_o
 func missile_impact(collider: Node3D) -> void:
 	if hit_target:
 		return
-	var root:= get_tree().root.get_child(0)
+	#var root:= get_tree().root.get_child(0)
 	#var after_death := [$impact,$explosion,$VaporTrail]
 	global_position = collider.global_position
 	#$explosion.pitch_scale = 10
 	
 	$explosion.play()
+	audio_main_thrust.queue_free()
+	audio_RCS.queue_free()
 	$impact.emitting = true
 	for x:Missile_thruster in all_thrusters:
 		if x.constant_thrust:
@@ -336,8 +373,44 @@ func missile_impact(collider: Node3D) -> void:
 	await get_tree().create_timer(8.0).timeout
 	queue_free()
 	
-	
+func _rcs_audio() -> void:
+	if randi_range(0,2) == 0:
+		if RCS_instance_count > 20 and RCS_this_id > 20 and _distance_to_cam() > 50:
+			print("RCS is hidden!")
+			return
+		
+		audio_RCS.play()
+		#RCS_audio_queued = false
 
+func _distance_to_target() -> float:
+	return target_position.distance_to(global_position)
+
+func _distance_to_cam() -> float:
+	var current_frame := Engine.get_physics_frames()
+	if !cached_camera or cached_camera_frame != current_frame:
+		cached_camera = get_viewport().get_camera_3d()
+		cached_camera_frame = current_frame
+	return global_position.distance_to(cached_camera.global_position)
+
+var RCS_audio_queued := false
+
+func compute_tick_avionics_ratio() -> void:
+	var distance := _distance_to_target()
+	if distance < 400.0: 
+		ratio_calculate_avionics = 1
+	elif distance < 1000.0 or instance_count > 100:
+		ratio_calculate_avionics = 2
+	else:
+		ratio_calculate_avionics = 3
+
+var performance_RCS_disabled := false
+func allow_RCS() -> void:
+	if RCS_instance_count > 50:
+		hide_RCS = true
+		performance_RCS_disabled = true
+	else:
+		hide_RCS = false
+		performance_RCS_disabled = false
 
 func _on_impactcheck_body_hit(collider: Node3D) -> void:
 	print("hit" , collider)
@@ -347,3 +420,8 @@ func _on_impactcheck_body_hit(collider: Node3D) -> void:
 func _on_body_entered(body: Node) -> void:
 	print("hit" , body)
 	missile_impact(body)
+	
+func _exit_tree() -> void:
+	instance_count -= 1
+	if !hide_RCS:
+		RCS_instance_count -= 1

@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://qvkvp8vrrjpc"]
 
-[ext_resource type="PackedScene" uid="uid://bp18cjik5iqo4" path="res://GerotengG1(1).glb" id="1_l7xx8"]
+[ext_resource type="PackedScene" uid="uid://bp18cjik5iqo4" path="res://meshes/GerotengG1(1).glb" id="1_l7xx8"]
 [ext_resource type="PackedScene" uid="uid://c515r8h7q7br8" path="res://thrusts/thrust/thrust.tscn" id="2_dm308"]
 [ext_resource type="Script" uid="uid://1kt5cwagrmf1" path="res://geroteng.gd" id="2_s0la5"]
 
