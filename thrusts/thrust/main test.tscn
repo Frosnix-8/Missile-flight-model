@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bewifmkf8dkw6"]
 
-[ext_resource type="PackedScene" uid="uid://cen33ej277jql" path="res://thrusts/thrust/geroteng_g_1.tscn" id="1_4m83u"]
+[ext_resource type="PackedScene" uid="uid://cen33ej277jql" path="res://geroteng_g_1.tscn" id="1_4m83u"]
 [ext_resource type="Script" uid="uid://b2s2db8thha7o" path="res://debugpoint.gd" id="2_2cq5c"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_4m83u"]
@@ -67,6 +67,7 @@ mesh = SubResource("BoxMesh_dmihs")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="MeshInstance3D/StaticBody3D" unique_id=1088850908]
 shape = SubResource("BoxShape3D_4m83u")
+disabled = true
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1491982588]
 transform = Transform3D(0.8362957, -0.2613805, 0.48196447, -1.4141078e-08, 0.8790502, 0.47672927, -0.5482787, -0.39868665, 0.73514587, -1.2864866, 23.548588, 2.4788017)
@@ -85,7 +86,9 @@ mesh = SubResource("BoxMesh_2cq5c")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="debugbody" unique_id=2093656768]
 shape = SubResource("SphereShape3D_2cq5c")
+disabled = true
 
 [node name="Geroteng G-1" parent="." unique_id=1758481796 node_paths=PackedStringArray("target") instance=ExtResource("1_4m83u")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -195.5314, 56.318985, 0)
+chase_mode = 1
 target = NodePath("../debugbody")

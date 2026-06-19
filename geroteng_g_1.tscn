@@ -169,9 +169,9 @@ angular_damp = 0.5
 script = ExtResource("1_7qqlg")
 unlimited_fuel = true
 explode_on_fuel_loss = true
-main_thrust_volume_db = -18.395
-thrust_volume_db = -22.61
-explosion_volume_db = -5
+main_thrust_volume_db = -10.0
+thrust_volume_db = -10.0
+explosion_volume_db = 0
 
 [node name="missile final_001" type="MeshInstance3D" parent="." unique_id=345212515]
 mesh = SubResource("ArrayMesh_5gp5x")
@@ -183,6 +183,7 @@ mesh = SubResource("ArrayMesh_0u4vw")
 [node name="missile collision" type="CollisionShape3D" parent="." unique_id=1905212927]
 transform = Transform3D(1, 0, 0, 0, -4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 2.003296e-09, -0.13423032)
 shape = SubResource("BoxShape3D_7qqlg")
+disabled = true
 
 [node name="impactcheck" type="ShapeCast3D" parent="." unique_id=1129891532]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.020413637)
@@ -244,7 +245,6 @@ draw_pass_1 = SubResource("SphereMesh_m3eeq")
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1101238135]
 transform = Transform3D(0.75066483, 0, 0.6606832, 0, 1, 0, -0.6606832, 0, 0.75066483, 1.3868712, 0.6141783, 2.5877564)
 doppler_tracking = 1
-current = true
 
 [node name="RCS" type="AudioStreamPlayer3D" parent="." unique_id=1796765180]
 stream = ExtResource("5_iwfhy")
@@ -267,7 +267,6 @@ doppler_tracking = 1
 
 [node name="explosion" type="AudioStreamPlayer3D" parent="." unique_id=417225405]
 stream = ExtResource("5_m3eeq")
-volume_db = -5.981
 unit_size = 69.19
 max_db = 0.0
 pitch_scale = 1.25

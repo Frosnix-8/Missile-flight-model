@@ -147,28 +147,32 @@ func compute_thrust() -> void:
 				print("SWITCHING TO PURSUIT")
 
 func compute_strafe_thrust() -> void:
-	var position_error := get_position_error()
-	var inverse_basis := basis.inverse()
-	var local_error: Vector3 = inverse_basis * position_error
+	var inv_basis: Basis = basis.inverse()
+	var local_error: Vector3 = inv_basis * get_position_error()
+	var local_velocity: Vector3 = inv_basis * linear_velocity
+
 	var final_thrust := Vector3.ZERO
 	for axis in range(3):
-		var distance_to_stop := (linear_velocity[axis] * linear_velocity[axis]) / (2.0 * linear_agility)
-		var is_towards_target: bool = bool(sign(linear_velocity[axis]) == sign(position_error[axis]))
-		if abs(position_error[axis]) <= distance_to_stop and is_towards_target:
-			final_thrust[axis] = -sign(position_error[axis])
+		var distance_to_stop: float = (local_velocity[axis] * local_velocity[axis]) / (2.0 * linear_agility)
+		var is_towards_target: bool = sign(local_velocity[axis]) == sign(local_error[axis])
+		if abs(local_error[axis]) <= distance_to_stop and is_towards_target:
+			final_thrust[axis] = -sign(local_error[axis])
 		else:
-			final_thrust[axis] = sign(position_error[axis])
+			final_thrust[axis] = sign(local_error[axis])
+
 	var _hide: bool = Vector2(local_error.x, local_error.y).length() < 2.0
-	#print("strafing hide ",hide, " ; ",Vector2(local_error.x, local_error.y).length())
-	missile_thrust(inverse_basis * final_thrust, true, _hide)
+	missile_thrust(final_thrust, true, _hide)
 	
 func compute_rotation_thrust() -> void:
 	var rotation_error: Vector3 = get_rotation_error()
 	var error_angle: float = rotation_error.length()
 
 	if error_angle < 0.1:
-		#var forward_target : Vector3 = get_position_error()
-		var quat : Quaternion = global_transform.looking_at(target_position,global_basis.y).basis.get_rotation_quaternion()
+		var look_dir: Vector3 = (target_position - global_position).normalized()
+		var up: Vector3 = global_basis.y
+		if abs(look_dir.dot(up)) > 0.99:
+			up = global_basis.x
+		var quat: Quaternion = Basis.looking_at(look_dir, up).get_rotation_quaternion()
 		missile_force_rotation(quat)
 		return
 
@@ -253,6 +257,17 @@ func get_rotation_error() -> Vector3:
 		return Vector3.ZERO
 	var desired_forward: Vector3 = (target_position - global_position).normalized()
 	var current_forward: Vector3 = -global_transform.basis.z
+	
+	var dot: float = current_forward.dot(desired_forward)
+	
+	## degenerate: vectors are nearly antiparallel
+	if dot < -0.9999:
+		## pick any axis perpendicular to current forward
+		var fallback: Vector3 = current_forward.cross(Vector3.UP)
+		if fallback.length_squared() < 0.001:
+			fallback = current_forward.cross(Vector3.RIGHT)
+		return fallback.normalized() * PI
+	
 	var rotation_diff: Quaternion = Quaternion(current_forward, desired_forward)
 	return rotation_diff.get_axis() * rotation_diff.get_angle()
 

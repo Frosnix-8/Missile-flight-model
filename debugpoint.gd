@@ -1,6 +1,6 @@
 extends CharacterBody3D
 
-var missile :PackedScene = load("res://thrusts/thrust/geroteng_g_1.tscn")
+var missile :PackedScene = load("res://geroteng_g_1.tscn")
 var t : float = 0.0
 func _physics_process(delta: float) -> void:
 	t += delta
