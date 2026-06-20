@@ -45,8 +45,11 @@ func _process(_delta: float) -> void:
 				target = x
 "
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_2cq5c"]
+
 [sub_resource type="BoxMesh" id="BoxMesh_2cq5c"]
-size = Vector3(0.2, 0.43, 0.595)
+material = SubResource("StandardMaterial3D_2cq5c")
+size = Vector3(1.142, 1.015, 1.562)
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_2cq5c"]
 
@@ -72,7 +75,6 @@ disabled = true
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1491982588]
 transform = Transform3D(0.8362957, -0.2613805, 0.48196447, -1.4141078e-08, 0.8790502, 0.47672927, -0.5482787, -0.39868665, 0.73514587, -1.2864866, 23.548588, 2.4788017)
 doppler_tracking = 1
-current = true
 fov = 98.5
 script = SubResource("GDScript_2cq5c")
 
@@ -86,9 +88,10 @@ mesh = SubResource("BoxMesh_2cq5c")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="debugbody" unique_id=2093656768]
 shape = SubResource("SphereShape3D_2cq5c")
-disabled = true
 
 [node name="Geroteng G-1" parent="." unique_id=1758481796 node_paths=PackedStringArray("target") instance=ExtResource("1_4m83u")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -195.5314, 56.318985, 0)
-chase_mode = 1
+linear_agility = 300.0
+forward_acceleration = 150.0
+angular_agility = 4.5
 target = NodePath("../debugbody")

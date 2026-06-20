@@ -18,6 +18,8 @@ enum chasemodes {
 	}
 ##How the missile will pursue targets. 
 @export var chase_mode : chasemodes = chasemodes.PURSUIT
+##current pursue mode. PN doesn't always use PN tracking, such as when the missile isn't facing the missile.
+var current_chase_mode : chasemodes = chase_mode
 ##aggressivity of PN corrections
 @export var pn_gain: float = 4.0
 
@@ -35,8 +37,7 @@ enum chasemodes {
 @onready var audio_main_thrust : AudioStreamPlayer3D = $MAINTHRUST
 @onready var audio_RCS : AudioStreamPlayer3D = $RCS
 
-##empty? missile can no longer maneuver in vacuum
-var thrust_time := 10.0
+
 
 var all_thrusters : Array[Missile_thruster]
 
@@ -51,7 +52,10 @@ var all_thrusters : Array[Missile_thruster]
 @export var forward_acceleration := 120.0
 ##angular agility of the missile, the max rotation it can do in a second.
 @export var angular_agility :float= PI
+##empty? missile can no longer maneuver in vacuum
+@export var thrust_time := 10.0
 @export var explode_on_fuel_loss := false
+
 
 @export_category("Visual Parameters")
 @export var hide_RCS := false
@@ -65,6 +69,7 @@ var all_thrusters : Array[Missile_thruster]
 @export var target : Node3D
 
 var target_position := Vector3.ZERO
+var PN_aim_point := Vector3.ZERO
 var target_velocity := Vector3.ZERO
 var is_facing_target :bool= false
 var no_target := true
@@ -93,6 +98,7 @@ func _ready() -> void:
 			push_error(self, " failed to start thruster animation on ", x)
 		if !show_all_thrusters:
 			x.ide()
+	Thrust_forward.how()
 	audio_RCS.volume_db = thrust_volume_db
 	audio_main_thrust.volume_db = main_thrust_volume_db
 	$explosion.volume_db = explosion_volume_db
@@ -103,6 +109,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	#print(basis.inverse() * linear_velocity)
 	tick_avionics += 1
 	if tick_avionics % 15 == 0:
 		compute_tick_avionics_ratio()
@@ -137,14 +144,19 @@ func _physics_process(delta: float) -> void:
 func compute_thrust() -> void:
 	match chase_mode:
 		chasemodes.PURSUIT:
+			current_chase_mode = chasemodes.PURSUIT
 			compute_strafe_thrust()
 		chasemodes.PROPORTIONAL_NAVIGATION:
+			
 			if is_facing_target:
+				current_chase_mode = chasemodes.PROPORTIONAL_NAVIGATION
+				compute_pn_intercept_point()
 				compute_pn_thrust()
-				print("using PN")
+				#print("using PN")
 			else:
+				current_chase_mode = chasemodes.PURSUIT
 				compute_strafe_thrust()
-				print("SWITCHING TO PURSUIT")
+				#print("SWITCHING TO PURSUIT")
 
 func compute_strafe_thrust() -> void:
 	var inv_basis: Basis = basis.inverse()
@@ -152,30 +164,47 @@ func compute_strafe_thrust() -> void:
 	var local_velocity: Vector3 = inv_basis * linear_velocity
 
 	var final_thrust := Vector3.ZERO
-	for axis in range(3):
-		var distance_to_stop: float = (local_velocity[axis] * local_velocity[axis]) / (2.0 * linear_agility)
-		var is_towards_target: bool = sign(local_velocity[axis]) == sign(local_error[axis])
-		if abs(local_error[axis]) <= distance_to_stop and is_towards_target:
-			final_thrust[axis] = -sign(local_error[axis])
-		else:
-			final_thrust[axis] = sign(local_error[axis])
+	for axis in range(2):
+		final_thrust[axis] = -sign(local_velocity[axis])
+	
+	#for axis in range(3):
+		#var distance_to_stop: float = (local_velocity[axis] * local_velocity[axis]) / (2.0 * linear_agility)
+		#var is_towards_target: bool = sign(local_velocity[axis]) == sign(local_error[axis])
+		#if abs(local_error[axis]) <= distance_to_stop and is_towards_target:
+			#final_thrust[axis] = -sign(local_error[axis])
+		#else:
+			#final_thrust[axis] = sign(local_error[axis])
 
 	var _hide: bool = Vector2(local_error.x, local_error.y).length() < 2.0
 	missile_thrust(final_thrust, true, _hide)
-	
+
+
 func compute_rotation_thrust() -> void:
 	var rotation_error: Vector3 = get_rotation_error()
 	var error_angle: float = rotation_error.length()
-
-	if error_angle < 0.1:
-		var look_dir: Vector3 = (target_position - global_position).normalized()
+	
+	
+	#if you're more or less facing the target, just snap to it.
+	if error_angle < 0.2:
+		var this_target_position: Vector3
+		
+		match current_chase_mode:
+			chasemodes.PURSUIT:
+				this_target_position = target_position
+			chasemodes.PROPORTIONAL_NAVIGATION:
+				this_target_position = PN_aim_point
+				
+		var look_dir: Vector3 = (this_target_position - global_position).normalized()
 		var up: Vector3 = global_basis.y
+		
 		if abs(look_dir.dot(up)) > 0.99:
 			up = global_basis.x
-		var quat: Quaternion = Basis.looking_at(look_dir, up).get_rotation_quaternion()
-		missile_force_rotation(quat)
+			
+		var to_target_Quat: Quaternion = Basis.looking_at(look_dir, up).get_rotation_quaternion()
+		missile_force_rotation(to_target_Quat)
+		
 		return
-
+	
 	var rotation_axis: Vector3 = rotation_error / error_angle
 	var spin_towards_target: float = angular_velocity.dot(rotation_axis)
 	var angle_to_stop: float = (spin_towards_target * spin_towards_target) / (2.0 * angular_agility)
@@ -185,31 +214,16 @@ func compute_rotation_thrust() -> void:
 		final_torque = -rotation_axis
 	else:
 		final_torque = rotation_axis
+	
+	#check if you need to rotate
 	var _hide := false
 	if final_torque.length() < 0.2:
 		_hide = true
-	#print("rotating hide? ",hide)
+	
 	missile_rotation(final_torque, false, false, _hide)
 	
 		
 ##computes target_position. if the target object is moving, it will change accordingly.
-#func compute_target_position(_delta: float) -> void:
-	#if !target:
-		#no_target = true
-		#return
-	#no_target = false
-#
-#
-	#if target is CharacterBody3D:
-		#target_velocity = target.velocity
-	#elif target is RigidBody3D:
-		#target_velocity = target.linear_velocity
-#
-	#match chase_mode:
-		#chasemodes.PURSUIT:
-			#target_position = target.global_position
-		#chasemodes.PROPORTIONAL_NAVIGATION:
-			#pass
 func compute_target_position(_delta: float) -> void:
 	if !target:
 		no_target = true
@@ -217,6 +231,7 @@ func compute_target_position(_delta: float) -> void:
 	no_target = false
 	target_position = target.global_position
 	target_velocity = Vector3.ZERO
+	
 	if target is CharacterBody3D:
 		target_velocity = target.velocity
 	elif target is RigidBody3D:
@@ -227,18 +242,6 @@ func compute_target_position(_delta: float) -> void:
 		is_facing_target = true
 		return
 	is_facing_target = false
- 
-func get_pn_aim_point(_target_position: Vector3, _target_velocity: Vector3) -> Vector3:
-	var los: Vector3 = _target_position - global_position
-	var range_to_target: float = los.length()
-	if range_to_target < 0.5:
-		return _target_position
-	var relative_velocity: Vector3 = _target_velocity - linear_velocity
-	var los_unit: Vector3 = los / range_to_target
-	var closing_velocity: float = -relative_velocity.dot(los_unit)
-	var los_rotation: Vector3 = los.cross(relative_velocity) / (range_to_target * range_to_target)
-	var commanded_acceleration: Vector3 = pn_gain * closing_velocity * los_rotation.cross(los_unit)
-	return global_position + commanded_acceleration
 
 func compute_pn_thrust() -> void:
 	var aim_point: Vector3 = get_pn_aim_point(target_position, target_velocity)
@@ -246,16 +249,54 @@ func compute_pn_thrust() -> void:
 	var _hide := false
 	if pn_direction.length() <= 0.5:
 		_hide = true
-	missile_thrust(pn_direction, true, _hide)
+	missile_thrust(basis.inverse() * pn_direction, true, _hide)
+
+func compute_pn_intercept_point() -> void:
+	var los: Vector3 = target_position - global_position
+	var range_to_target: float = los.length()
+	if range_to_target < 2.0:
+		PN_aim_point = target_position
+		return
+	var relative_velocity: Vector3 = target_velocity - linear_velocity
+	var closing_speed: float = -relative_velocity.dot(los / range_to_target)
+	if closing_speed <= 0.0:
+		PN_aim_point = target_position  ## not closing, just face target
+		return
+	var time_to_intercept: float = range_to_target / closing_speed
+	PN_aim_point = target_position + target_velocity * time_to_intercept
+
+func get_pn_aim_point(_target_position: Vector3, _target_velocity: Vector3) -> Vector3:
+	var los: Vector3 = _target_position - global_position
+	var range_to_target: float = los.length()
+	if range_to_target < 2.0:
+		return _target_position
+	var relative_velocity: Vector3 = _target_velocity - linear_velocity
+	var los_unit: Vector3 = los / range_to_target
+	var closing_velocity: float = -relative_velocity.dot(los_unit)
+	var los_rotation: Vector3 = los.cross(relative_velocity) / (range_to_target * range_to_target)
+	var commanded_acceleration: Vector3 = pn_gain * closing_velocity * los_rotation.cross(los_unit)
+	
+	return global_position + commanded_acceleration
+
+
 	
 func get_position_error() -> Vector3:
 	#print(target_position - global_position)
 	return target_position - global_position
-	
+
+##computes the rotation difference between the vector facing towards the target and its current rotation. If to_velocity is enabled, computes difference to movement vector.
 func get_rotation_error() -> Vector3:
-	if !target:
+	if !target or linear_velocity.length_squared() < 1.0:
 		return Vector3.ZERO
-	var desired_forward: Vector3 = (target_position - global_position).normalized()
+	var this_target_position : Vector3
+	
+	match current_chase_mode:
+		chasemodes.PURSUIT:
+			this_target_position = target_position
+		chasemodes.PROPORTIONAL_NAVIGATION:
+			this_target_position = PN_aim_point
+			
+	var desired_forward: Vector3 = (this_target_position - global_position).normalized()
 	var current_forward: Vector3 = -global_transform.basis.z
 	
 	var dot: float = current_forward.dot(desired_forward)
@@ -360,9 +401,10 @@ func missile_impact(collider: Node3D) -> void:
 		return
 	#var root:= get_tree().root.get_child(0)
 	#var after_death := [$impact,$explosion,$VaporTrail]
-	global_position = collider.global_position
+	if collider:
+		global_position = collider.global_position
 	#$explosion.pitch_scale = 10
-	
+	$Camera3D.queue_free()
 	$explosion.play()
 	audio_main_thrust.queue_free()
 	audio_RCS.queue_free()
@@ -384,14 +426,14 @@ func missile_impact(collider: Node3D) -> void:
 	#$explosion.reparent(root)
 	#$VaporTrail.reparent(root)
 	
-	print("freed ", self)
+	#print("freed ", self)
 	await get_tree().create_timer(8.0).timeout
 	queue_free()
 	
 func _rcs_audio() -> void:
 	if randi_range(0,2) == 0:
-		if RCS_instance_count > 20 and RCS_this_id > 20 and _distance_to_cam() > 50:
-			print("RCS is hidden!")
+		if (RCS_instance_count > 20 and RCS_this_id > 20 and _distance_to_cam() > 50) or _distance_to_cam() > 500:
+			#print("RCS is hidden!")
 			return
 		
 		audio_RCS.play()
@@ -420,7 +462,7 @@ func compute_tick_avionics_ratio() -> void:
 
 var performance_RCS_disabled := false
 func allow_RCS() -> void:
-	if RCS_instance_count > 50:
+	if RCS_instance_count > 50 or _distance_to_cam() > 500:
 		hide_RCS = true
 		performance_RCS_disabled = true
 	else:
@@ -428,12 +470,12 @@ func allow_RCS() -> void:
 		performance_RCS_disabled = false
 
 func _on_impactcheck_body_hit(collider: Node3D) -> void:
-	print("hit" , collider)
+	#print("hit" , collider)
 	missile_impact(collider)
 
 
 func _on_body_entered(body: Node) -> void:
-	print("hit" , body)
+	#print("hit" , body)
 	missile_impact(body)
 	
 func _exit_tree() -> void:

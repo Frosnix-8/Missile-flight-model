@@ -159,15 +159,38 @@ height = 0.231
 radial_segments = 16
 rings = 16
 
+[sub_resource type="GDScript" id="GDScript_mvhaw"]
+resource_name = "look at smth"
+script/source = "extends Camera3D
+@export var target : Node3D
+var blacklist : Array[Missile_Guided]
+
+
+# Called every frame. 'delta' is the elapsed time since the previous frame.
+func _process(_delta: float) -> void:
+	if target:
+		if target is Missile_Guided and target.hit_target:
+			blacklist.append(target)
+			target = null
+			return
+		global_basis = global_transform.looking_at(target.position).basis
+	else:
+		for x in get_parent().get_children(0):
+			if x is Missile_Guided and x not in blacklist:
+				target = x
+"
+
 [node name="Geroteng G-1" type="RigidBody3D" unique_id=1758481796]
 mass = 85.0
 inertia = Vector3(1, 1, 1)
 continuous_cd = true
 linear_damp_mode = 1
 angular_damp_mode = 1
-angular_damp = 0.5
+angular_damp = 1.0
 script = ExtResource("1_7qqlg")
 unlimited_fuel = true
+chase_mode = 1
+linear_agility = 120.0
 explode_on_fuel_loss = true
 main_thrust_volume_db = -10.0
 thrust_volume_db = -10.0
@@ -183,7 +206,6 @@ mesh = SubResource("ArrayMesh_0u4vw")
 [node name="missile collision" type="CollisionShape3D" parent="." unique_id=1905212927]
 transform = Transform3D(1, 0, 0, 0, -4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 2.003296e-09, -0.13423032)
 shape = SubResource("BoxShape3D_7qqlg")
-disabled = true
 
 [node name="impactcheck" type="ShapeCast3D" parent="." unique_id=1129891532]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.020413637)
@@ -242,10 +264,6 @@ explosiveness = 0.99
 process_material = SubResource("ParticleProcessMaterial_m3eeq")
 draw_pass_1 = SubResource("SphereMesh_m3eeq")
 
-[node name="Camera3D" type="Camera3D" parent="." unique_id=1101238135]
-transform = Transform3D(0.75066483, 0, 0.6606832, 0, 1, 0, -0.6606832, 0, 0.75066483, 1.3868712, 0.6141783, 2.5877564)
-doppler_tracking = 1
-
 [node name="RCS" type="AudioStreamPlayer3D" parent="." unique_id=1796765180]
 stream = ExtResource("5_iwfhy")
 unit_size = 39.81
@@ -272,6 +290,13 @@ max_db = 0.0
 pitch_scale = 1.25
 attenuation_filter_cutoff_hz = 3579.0
 attenuation_filter_db = -12.1
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=120107327]
+transform = Transform3D(0.9986739, 0, -0.051481847, 0, 1, 0, 0.051481847, 0, 0.9986739, 0, 0.6418032, 2.2880528)
+doppler_tracking = 1
+current = true
+fov = 98.5
+script = SubResource("GDScript_mvhaw")
 
 [connection signal="body_entered" from="." to="." method="_on_body_entered"]
 [connection signal="body_hit" from="impactcheck" to="." method="_on_impactcheck_body_hit"]
