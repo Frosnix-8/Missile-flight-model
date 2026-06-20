@@ -109,7 +109,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	#print(basis.inverse() * linear_velocity)
+	
 	tick_avionics += 1
 	if tick_avionics % 15 == 0:
 		compute_tick_avionics_ratio()
@@ -136,7 +136,7 @@ func _physics_process(delta: float) -> void:
 	_rcs_audio()
 	#print("missile has a velocity of ", linear_velocity.length())
 	
-	
+	print(linear_velocity.length())
 	collision_check.target_position = collision_check.to_local(linear_velocity) * delta * 0.5
 	
 	
@@ -160,23 +160,14 @@ func compute_thrust() -> void:
 
 func compute_strafe_thrust() -> void:
 	var inv_basis: Basis = basis.inverse()
-	var local_error: Vector3 = inv_basis * get_position_error()
 	var local_velocity: Vector3 = inv_basis * linear_velocity
 
 	var final_thrust := Vector3.ZERO
 	for axis in range(2):
 		final_thrust[axis] = -sign(local_velocity[axis])
 	
-	#for axis in range(3):
-		#var distance_to_stop: float = (local_velocity[axis] * local_velocity[axis]) / (2.0 * linear_agility)
-		#var is_towards_target: bool = sign(local_velocity[axis]) == sign(local_error[axis])
-		#if abs(local_error[axis]) <= distance_to_stop and is_towards_target:
-			#final_thrust[axis] = -sign(local_error[axis])
-		#else:
-			#final_thrust[axis] = sign(local_error[axis])
-
-	var _hide: bool = Vector2(local_error.x, local_error.y).length() < 2.0
-	missile_thrust(final_thrust, true, _hide)
+	var _hide: bool = Vector2(local_velocity.x, local_velocity.y).length() < 0.6
+	missile_thrust(final_thrust, true, _hide, inv_basis)
 
 
 func compute_rotation_thrust() -> void:
@@ -249,7 +240,8 @@ func compute_pn_thrust() -> void:
 	var _hide := false
 	if pn_direction.length() <= 0.5:
 		_hide = true
-	missile_thrust(basis.inverse() * pn_direction, true, _hide)
+	var inverse_basis := basis.inverse()
+	missile_thrust(inverse_basis * pn_direction, true, _hide, inverse_basis)
 
 func compute_pn_intercept_point() -> void:
 	var los: Vector3 = target_position - global_position
@@ -313,16 +305,15 @@ func get_rotation_error() -> Vector3:
 	return rotation_diff.get_axis() * rotation_diff.get_angle()
 
 ##simulated thrust in the direction. direction must be localized
-func missile_thrust(direction: Vector3 = Vector3.ZERO, reset := false, _hide := false) -> void:
+func missile_thrust(direction: Vector3 = Vector3.ZERO, reset := false, _hide := false, inverse_basis := basis.inverse()) -> void:
 	if reset:
 		for x in all_thrusters:
 			x.ide()
-
+	direction.z = clamp(sign(direction.z), -1,0)
 	
 	if disable_strafe:
 		direction = Vector3(0,0,direction.z)
-	if !enable_rear_thrust:
-		direction.z = -1
+	direction.z = -1.0
 	
 	if !_hide and !hide_RCS:
 		#left or right
@@ -344,10 +335,12 @@ func missile_thrust(direction: Vector3 = Vector3.ZERO, reset := false, _hide := 
 				Thrust_down.how()
 				Thrust_down_aft.how()
 		RCS_audio_queued = true
-	if !hit_target and thrust_time >= 0:
+	if direction.z == -1.0:
 		Thrust_forward.how()
-		#Thrust_forward.neopitch = 0.8 * clamp((linear_velocity.length()/60.0) * 0.8, 1.0, 1.7)
 
+	if linear_velocity.length() > max_straight_line_speed:
+		direction.z = 0.0
+		
 	#print("applying force ", direction)
 	apply_central_force(basis * (direction * mass * Vector3(linear_agility,linear_agility,forward_acceleration)) )
 

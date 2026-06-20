@@ -91,7 +91,6 @@ shape = SubResource("SphereShape3D_2cq5c")
 
 [node name="Geroteng G-1" parent="." unique_id=1758481796 node_paths=PackedStringArray("target") instance=ExtResource("1_4m83u")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -195.5314, 56.318985, 0)
-linear_agility = 300.0
-forward_acceleration = 150.0
-angular_agility = 4.5
+pn_gain = 7.0
+forward_acceleration = 100.0
 target = NodePath("../debugbody")
