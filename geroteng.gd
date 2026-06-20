@@ -68,6 +68,16 @@ var all_thrusters : Array[Missile_thruster]
 @export_category("Target")
 @export var target : Node3D
 
+@export_category("Performance")
+##Past this amount of RCS missiles, the game will no longer render the RCS.
+@export var RCS_max_instances_at_once := 20
+##Past this distance, RCS no longer plays audio
+@export var RCS_disable_audio_distance := 500
+##Distance from target beyond which missile calculation frequency is halved.
+@export var distance_reduce_poll := 600
+##instance count from where poll rate is halved.
+@export var instance_count_reduce_poll := 50
+
 var target_position := Vector3.ZERO
 var PN_aim_point := Vector3.ZERO
 var target_velocity := Vector3.ZERO
@@ -76,9 +86,14 @@ var no_target := true
 var hit_target := false
 
 var tick_avionics := 0
+##integer marking performance mode of missiles. 0 is highest performance, 1 is half, 2 is a third, etc. Maxes out at 3 or 4 (P = 60/(n + 1) Hz)
+var performance_level := 0
+##Tick ratios for calculating avionics. Each higher index is a higher performance level, IE: higher fps modes. calculates every n frame(s). Increase for better performance, at the cost of inferior missile accuracy
+@export var avionic_tick_ratio :Array[int]= [1,2,3,4,5]
 var ratio_calculate_avionics := 1
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
+
 	instance_count += 1
 	this_id = instance_count
 	if !hide_RCS:
@@ -422,6 +437,7 @@ func missile_impact(collider: Node3D) -> void:
 	#print("freed ", self)
 	await get_tree().create_timer(8.0).timeout
 	queue_free()
+	
 	
 func _rcs_audio() -> void:
 	if randi_range(0,2) == 0:

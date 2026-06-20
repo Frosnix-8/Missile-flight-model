@@ -18,6 +18,7 @@ metallic_texture_channel = 2
 roughness_texture = ExtResource("3_u0wu7")
 roughness_texture_channel = 1
 ao_enabled = true
+ao_light_affect = 0.7
 ao_texture = ExtResource("3_u0wu7")
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_2xytd"]
