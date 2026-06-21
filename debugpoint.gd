@@ -4,8 +4,14 @@ var missile :PackedScene = load("res://geroteng_g_1.tscn")
 var t : float = 0.0
 func _physics_process(delta: float) -> void:
 	t += delta
-	velocity.y = 100*Input.get_axis("ui_up", "ui_down")
-	velocity.x = 100*Input.get_axis("ui_left", "ui_right")
+	var input := Input.get_axis("ui_up", "ui_down")
+	if input and velocity.length() < 50:
+		velocity.y += 1*input
+	else:
+		velocity.y /=1
+		
+	
+	
 	move_and_slide()
 	if Input.is_action_just_pressed("ui_accept"):
 		for x in range(10):
