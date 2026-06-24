@@ -11,6 +11,7 @@ static var global_performance_level := -1
 static var cached_camera : Camera3D
 ##frame on which the camera was cached. on new frames, the camera is recached, but only once.
 static var cached_camera_frame : int = 0
+static var exploding_missiles : int = 0
 
 #region static performance variables
 
@@ -72,6 +73,7 @@ enum trackmodes {
 	ACTIVE_RADAR, ##Chases based on radar data supplied by a built-in radar. Theoretically very detectable, as it directly emits frequencies towards the target.
 	
 }
+@export var track_mode : trackmodes = trackmodes.PASSIVE_INFRARED
 
 @onready var Thrust_forward : Missile_thruster = $ThrustEffect
 @onready var Thrust_right : Missile_thruster = $ThrustEffect6
@@ -82,6 +84,21 @@ enum trackmodes {
 @onready var Thrust_right_aft : Missile_thruster = $ThrustEffect9
 @onready var Thrust_up_aft : Missile_thruster = $ThrustEffect4
 @onready var Thrust_down_aft : Missile_thruster = $ThrustEffect3
+enum thrusters {
+	FORWARD,
+	DOWN,
+	DOWN_AFT,
+	LEFT,
+	LEFT_AFT,
+	RIGHT,
+	RIGHT_AFT,
+	UP,
+	UP_AFT
+}
+var all_thrusters : Array[Missile_thruster]
+var active_thrusters : Array[bool] = [false,false,false,false,false,false,false,false,false]
+var thruster_to_activate : Array[bool] = [false,false,false,false,false,false,false,false,false]
+
 
 ##Shapecast (or Raycast in the future) that detects objects. it faces the missile's attitude and has a length equal to its distance traveled each frame.
 @onready var collision_check : ShapeCast3D = $impactcheck
@@ -93,7 +110,7 @@ enum trackmodes {
 var RCS_audio_queued := false
 
 
-var all_thrusters : Array[Missile_thruster]
+
 
 @export_category("Missile specifications")
 ##Speed when launched from ship. When the missile is instanciated (or in the future, activated?), an impulse of n * mass newtons is applied in the negative Z basis (forward)
@@ -184,13 +201,20 @@ func _ready() -> void:
 			push_error(self, " failed to start thruster animation on ", x)
 		if !show_all_thrusters:
 			x.ide()
-	Thrust_forward.how()
+	
 	audio_RCS.volume_db = thrust_volume_db
 	audio_RCS.pitch_scale *= thrust_pitch_scale
 	audio_main_thrust.pitch_scale *= main_thrust_pitch_scale
 	audio_main_thrust.volume_db = main_thrust_volume_db
 	$explosion.volume_db = explosion_volume_db
 	apply_central_impulse(basis * Vector3(0,0,-launch_speed))
+	
+	angular_agility *= randf_range(0.9,1.1)
+	linear_agility *= randf_range(0.9,1.1)
+	forward_acceleration *= randf_range(0.9,1.1)
+	launch_clear_time *= randf_range(0.6,1.0)
+	launch_speed *= randf_range(0.9,1.1)
+	
 	await get_tree().create_timer(launch_clear_time).timeout
 	can_maneuver = true
 	
@@ -229,6 +253,7 @@ func _physics_process(delta: float) -> void:
 		compute_target_position(delta)
 		compute_thrust()
 		compute_rotation_thrust()
+	missile_thruster_set_visibility()
 	_rcs_audio()
 	#print("missile has a velocity of ", linear_velocity.length())
 
@@ -266,7 +291,7 @@ func compute_strafe_thrust() -> void:
 	for axis in range(2):
 		final_thrust[axis] = -sign(local_velocity[axis])
 	
-	var _hide: bool = Vector2(local_velocity.x, local_velocity.y).length() < 0.6
+	var _hide: bool = Vector2(local_velocity.x, local_velocity.y).length() < 2.0
 	missile_thrust(final_thrust, true, _hide, inv_basis)
 
 ##Computes the necessary rotation forces to face the desired direction.
@@ -278,7 +303,7 @@ func compute_rotation_thrust() -> void:
 	
 	
 	#if you're more or less facing the target, just snap to it.
-	if error_angle < 0.2:
+	if error_angle < 0.1:
 		var this_target_position: Vector3
 		
 		match current_chase_mode:
@@ -409,11 +434,24 @@ func get_rotation_error() -> Vector3:
 	var rotation_diff: Quaternion = Quaternion(current_forward, desired_forward)
 	return rotation_diff.get_axis() * rotation_diff.get_angle()
 
+
+
+func missile_thruster_set_visibility() -> void:
+	for i in all_thrusters.size():
+		if thruster_to_activate[i] != active_thrusters[i]:
+			if thruster_to_activate[i]:
+				all_thrusters[i].how()
+			else:
+				all_thrusters[i].ide()
+			
+			active_thrusters[i] = thruster_to_activate[i]
+	
+	thruster_to_activate.fill(false)
+
 ##Applies all physic forces based on the supplied direction. Additionally, checks which RCS thrusters should be active.
 func missile_thrust(direction: Vector3 = Vector3.ZERO, reset := false, _hide := false, inverse_basis := basis.inverse()) -> void:
 	if reset:
-		for x in all_thrusters:
-			x.ide()
+		thruster_to_activate.fill(false)
 	direction.z = clamp(sign(direction.z), -1,0)
 	
 	if disable_strafe:
@@ -424,26 +462,26 @@ func missile_thrust(direction: Vector3 = Vector3.ZERO, reset := false, _hide := 
 		#left or right
 		match sign(direction.x): 
 			1.0:
-				Thrust_right.how()
-				Thrust_right_aft.how()
+				thruster_to_activate[thrusters.RIGHT] = true
+				thruster_to_activate[thrusters.RIGHT_AFT] = true
 			-1.0:
-				Thrust_left.how()
-				Thrust_left_aft.how()
+				thruster_to_activate[thrusters.LEFT] = true
+				thruster_to_activate[thrusters.LEFT_AFT] = true
 		
 		#up or down
 		match sign(direction.y):
 			1.0:
-				Thrust_up.how()
-				Thrust_up_aft.how()
+				thruster_to_activate[thrusters.UP] = true
+				thruster_to_activate[thrusters.UP_AFT] = true
 				
 			-1.0:
-				Thrust_down.how()
-				Thrust_down_aft.how()
+				thruster_to_activate[thrusters.DOWN] = true
+				thruster_to_activate[thrusters.DOWN_AFT] = true
 	if !_hide:
 		RCS_audio_queued = true
 	
 	if direction.z == -1.0:
-		Thrust_forward.how()
+		thruster_to_activate[thrusters.FORWARD] = true
 
 	if linear_velocity.length() > max_straight_line_speed:
 		direction.z = 0.0
@@ -454,14 +492,13 @@ func missile_thrust(direction: Vector3 = Vector3.ZERO, reset := false, _hide := 
 ##Snaps the missile to the supplied quaternion.
 func missile_force_rotation(face: Quaternion, weight := 20.0) -> void:
 	var current_rotation :Quaternion= basis.get_rotation_quaternion().normalized()
-	current_rotation = current_rotation.slerp(face, 0.5 * get_physics_process_delta_time() * 60)
+	current_rotation = current_rotation.slerp(face, 0.5 * get_physics_process_delta_time() * weight)
 	basis = Basis(current_rotation)
 
 ##Applies torque based off the supplied rotation direction. Additionally, determines which RCS thrusters should be active.
 func missile_rotation(direction: Vector3 = Vector3.ZERO, reset := true, visual_only := false, _hide := false) -> void:
 	if reset:
-		for x in all_thrusters:
-			x.ide()
+		thruster_to_activate.fill(false)
 	direction = basis.inverse() * direction
 	var temporary_multiplier := 1.0
 	if direction.length() < deg_to_rad(15):
@@ -471,23 +508,23 @@ func missile_rotation(direction: Vector3 = Vector3.ZERO, reset := true, visual_o
 
 		match sign(direction.x):
 			1.0:
-				Thrust_up.how()
-				Thrust_down_aft.how()
-				Thrust_down.ide()
+				thruster_to_activate[thrusters.UP] = true
+				thruster_to_activate[thrusters.DOWN_AFT] = true
+				thruster_to_activate[thrusters.DOWN] = false
 			-1.0:
-				Thrust_down.how()
-				Thrust_up_aft.how()
-				Thrust_up.ide()
+				thruster_to_activate[thrusters.DOWN] = true
+				thruster_to_activate[thrusters.UP_AFT] = true
+				thruster_to_activate[thrusters.UP] = false
 
 		match sign(direction.y):
 			1.0:
-				Thrust_left.how()
-				Thrust_right_aft.how()
-				Thrust_left.ide()
+				thruster_to_activate[thrusters.LEFT] = true
+				thruster_to_activate[thrusters.RIGHT_AFT] = true
+				thruster_to_activate[thrusters.RIGHT] = false
 			-1.0:
-				Thrust_right.how()
-				Thrust_left_aft.how()
-				Thrust_left.ide()
+				thruster_to_activate[thrusters.RIGHT] = true
+				thruster_to_activate[thrusters.LEFT_AFT] = true
+				thruster_to_activate[thrusters.LEFT] = false
 	if !_hide:
 		RCS_audio_queued = true
 		
@@ -501,6 +538,7 @@ func missile_rotation(direction: Vector3 = Vector3.ZERO, reset := true, visual_o
 
 ##Logic for what happens when the missile collides.
 func missile_impact(collider: Node3D) -> void:
+	exploding_missiles += 1
 	if hit_target:
 		return
 	#var root:= get_tree().root.get_child(0)
@@ -512,9 +550,10 @@ func missile_impact(collider: Node3D) -> void:
 	$explosion.play()
 	audio_main_thrust.queue_free()
 	audio_RCS.queue_free()
-	if performance_level < 3:
+	if performance_level < 2 or exploding_missiles < 10:
 		$impact.emitting = true
 	else:
+		push_warning("high performance or high explosion count, cancelling explosion.")
 		$impact.queue_free()
 	for x:Missile_thruster in all_thrusters:
 		if x.constant_thrust:
@@ -522,6 +561,7 @@ func missile_impact(collider: Node3D) -> void:
 			pass
 		x.queue_free()
 	set_physics_process(false)
+	$LOD.queue_free()
 	$"missile final_001".queue_free()
 	$Text_008.queue_free()
 	$impactcheck.queue_free()
@@ -534,7 +574,7 @@ func missile_impact(collider: Node3D) -> void:
 	#$VaporTrail.reparent(root)
 	
 	#print("freed ", self)
-	await get_tree().create_timer(8.0).timeout
+	await get_tree().create_timer(4.0).timeout
 	queue_free()
 	
 func missile_LOD() -> void:
@@ -542,10 +582,21 @@ func missile_LOD() -> void:
 		$"missile final_001".hide()
 		$Text_008.hide()
 		$LOD.show()
+		$GPUParticles3D.emitting = false
 	else:
 		$"missile final_001".show()
 		$Text_008.show()
 		$LOD.hide()
+		$GPUParticles3D.emitting = true
+	if instance_count > PERFORMANCE_POLL_INSTANCE_COUNT and this_id > PERFORMANCE_POLL_INSTANCE_COUNT:
+		$GPUParticles3D.emitting = false
+		
+	if instance_count > PERFORMANCE_POLL_INSTANCE_COUNT and this_id > PERFORMANCE_POLL_INSTANCE_COUNT:
+		$VaporTrail.hide()
+	else:
+		$VaporTrail.show()
+	
+
 
 ##Determines if RCS audio should be played or not, depending on the static distance limit or instance count set.
 func _rcs_audio() -> void:
@@ -631,6 +682,8 @@ func _on_body_entered(body: Node) -> void:
 
 ##Idk this does something
 func _exit_tree() -> void:
+	if hit_target:
+		exploding_missiles -= 1
 	instance_count -= 1
 	if !hide_RCS:
 		RCS_instance_count -= 1

@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://bewifmkf8dkw6"]
 
 [ext_resource type="PackedScene" uid="uid://cen33ej277jql" path="res://geroteng_g_1.tscn" id="1_4m83u"]
-[ext_resource type="Script" uid="uid://b2s2db8thha7o" path="res://debugpoint.gd" id="2_2cq5c"]
 [ext_resource type="PackedScene" uid="uid://dgwvyqqag471x" path="res://ship model/hst.tscn" id="2_ntarn"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_4m83u"]
@@ -24,14 +23,6 @@ volumetric_fog_density = 0.007
 [sub_resource type="BoxMesh" id="BoxMesh_dmihs"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_4m83u"]
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_2cq5c"]
-
-[sub_resource type="BoxMesh" id="BoxMesh_2cq5c"]
-material = SubResource("StandardMaterial3D_2cq5c")
-size = Vector3(1.142, 1.015, 1.562)
-
-[sub_resource type="SphereShape3D" id="SphereShape3D_2cq5c"]
 
 [sub_resource type="GDScript" id="GDScript_2cq5c"]
 resource_name = "look at smth"
@@ -69,26 +60,17 @@ mesh = SubResource("BoxMesh_dmihs")
 shape = SubResource("BoxShape3D_4m83u")
 disabled = true
 
-[node name="debugbody" type="CharacterBody3D" parent="." unique_id=1868413212]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.32721615, 22.516272, -0.05506754)
-motion_mode = 1
-script = ExtResource("2_2cq5c")
+[node name="Collection 3" parent="." unique_id=225455826 instance=ExtResource("2_ntarn")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30.877277, 0)
 
-[node name="MeshInstance3D2" type="MeshInstance3D" parent="debugbody" unique_id=1863955519]
-mesh = SubResource("BoxMesh_2cq5c")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="debugbody" unique_id=2093656768]
-shape = SubResource("SphereShape3D_2cq5c")
-disabled = true
-
-[node name="Collection 2" parent="." unique_id=225455826 instance=ExtResource("2_ntarn")]
+[node name="Collection 2" parent="." unique_id=1773675596 instance=ExtResource("2_ntarn")]
 transform = Transform3D(-0.3612644, 0, 0.9324634, 0, 1, 0, -0.9324634, 0, -0.3612644, 107.86037, 0.99991226, 0)
 
 [node name="Geroteng G-1" parent="." unique_id=1758481796 node_paths=PackedStringArray("target") instance=ExtResource("1_4m83u")]
-transform = Transform3D(-0.36126444, 0, 0.93246347, 0, 1, 0, -0.93246347, 0, -0.36126444, 107.86037, -3.0374079, 0)
+transform = Transform3D(-0.36126444, 0, 0.93246347, 0, 1, 0, -0.93246347, 0, -0.36126444, 107.86037, -11.011318, 0)
 launch_clear_time = 0.535
 angular_agility = 3.093
-target = NodePath("../debugbody")
+target = NodePath("../Collection 3")
 
 [node name="Camera3D2" type="Camera3D" parent="." unique_id=1491982588]
 transform = Transform3D(0.9998986, 0.006789362, -0.012518921, -0.0072032693, 0.99941885, -0.0333194, 0.012285427, 0.033406198, 0.9993664, 3.0019112, 15.940323, 13.861069)

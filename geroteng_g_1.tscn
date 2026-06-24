@@ -144,27 +144,29 @@ emission_energy_multiplier = 4.14
 billboard_keep_scale = true
 
 [sub_resource type="Curve" id="Curve_m3eeq"]
-_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.10638299, 1), 3.7720697, 0.0, 0, 0]
-point_count = 2
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.10638299, 1), 3.7720697, 0.0, 0, 0, Vector2(0.69841266, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 4
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_m3eeq"]
+lifetime_randomness = 0.55
 particle_flag_align_y = true
 direction = Vector3(0, 0, -1)
-spread = 91.95
-initial_velocity_min = 43.01
-initial_velocity_max = 65.86
+spread = 6.185
+initial_velocity_min = 32.26
+initial_velocity_max = 90.049995
 gravity = Vector3(0, 0, 0)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7qqlg"]
 emission_enabled = true
 emission = Color(0.9999998, 0.6439104, 0.10479637, 1)
-emission_energy_multiplier = 6.33
+emission_energy_multiplier = 7.07
 billboard_keep_scale = true
 
 [sub_resource type="SphereMesh" id="SphereMesh_m3eeq"]
 material = SubResource("StandardMaterial3D_7qqlg")
-radius = 0.022
-height = 0.231
+uv2_padding = 4.1
+radius = 0.236
+height = 0.728
 radial_segments = 16
 rings = 16
 
@@ -200,10 +202,10 @@ script = ExtResource("1_7qqlg")
 unlimited_fuel = true
 launch_speed = 50.0
 launch_clear_time = 0.3
-max_straight_line_speed = 200.0
+max_straight_line_speed = 300.0
 linear_agility = 200.0
 forward_acceleration = 200.0
-angular_agility = 3.142
+angular_agility = 2.157
 explode_on_fuel_loss = true
 main_thrust_volume_db = -10.0
 thrust_pitch_scale = 0.53
@@ -280,10 +282,10 @@ transform = Transform3D(0.834, 1.4752594e-07, 6.4485635e-15, 0, -4.9175313e-08, 
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.0040925)
 gi_mode = 2
 emitting = false
-amount = 1087
-lifetime = 4.12
+amount = 1077
+lifetime = 3.5599999999999996
 one_shot = true
-explosiveness = 0.99
+explosiveness = 0.96
 process_material = SubResource("ParticleProcessMaterial_m3eeq")
 draw_pass_1 = SubResource("SphereMesh_m3eeq")
 
@@ -320,6 +322,10 @@ amount = 770
 fixed_fps = 60
 process_material = SubResource("ParticleProcessMaterial_or73b")
 draw_pass_1 = SubResource("SphereMesh_ii28r")
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=888748850]
+transform = Transform3D(1, 0, 0, 0, 0.9580548, 0.28658512, 0, -0.28658512, 0.9580548, -2.4244652, 1.0763428, 2.8820791)
+doppler_tracking = 1
 
 [connection signal="body_entered" from="." to="." method="_on_body_entered"]
 [connection signal="body_hit" from="impactcheck" to="." method="_on_impactcheck_body_hit"]

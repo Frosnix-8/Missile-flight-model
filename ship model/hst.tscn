@@ -2,16 +2,34 @@
 
 [ext_resource type="PackedScene" uid="uid://c7chkjgoyiwpr" path="res://ship model/HST-80.glb" id="1_flrvv"]
 
+[sub_resource type="ConvexPolygonShape3D" id="ConvexPolygonShape3D_flrvv"]
+points = PackedVector3Array(9.442389, -1.0211362, 15.564136, -0.3997077, -0.720149, -13.816573, 0.502635, 0.7658, -16.600977, -32.55262, 0.7658, 2.1628141, 14.799522, 4.3387976, 6.6288424, 17.48089, -2.8080723, -3.1964197, -23.618465, -2.8080723, -3.1964197, 23.739277, 0.7658, -11.238507, 8.546734, 4.3387976, -6.7692423, 23.739277, -1.0211362, 11.098107, -18.255733, 3.445767, -2.303214, 0.502635, 0.7658, 16.460577, -23.618465, -2.8080723, 3.0560198, 8.546734, -3.7019777, 1.2696085, -17.360079, 3.445767, 3.0560198, -33.448277, -0.12723076, -2.303214, 12.118156, -1.0211362, -14.81133, 23.739277, 0.7658, 11.098107, 23.739277, -1.0211362, -11.238507, -31.656967, -1.9141669, 2.1628141, 8.546734, -3.7019777, -1.4100084, 7.651079, 4.3387976, 6.6288424, -31.656967, -1.9141669, -2.303214, 17.48089, 3.445767, -2.303214, 9.442389, 0.7658, 15.564136, -31.656967, 0.7658, -2.303214, 4.969713, 0.7658, -16.600977, -17.360079, -2.8080723, 4.842431, -17.360079, 3.445767, -3.1964197, 13.140116, 4.037126, -6.203636, 17.48089, -2.8080723, 3.0560198, -33.448277, -0.12723076, 2.1628141)
+
 [sub_resource type="GDScript" id="GDScript_flrvv"]
 resource_name = "debugmovement"
 script/source = "extends Camera3D
+var missile := load(\"res://geroteng_g_1.tscn\")
 
+func _ready() -> void:
+	if get_parent().name != \"Collection 2\":
+		current = false
+	else:
+		current = true
 
 func _process(delta: float) -> void:
 	var input = Input.get_vector(\"ui_left\", \"ui_right\",\"ui_up\", \"ui_down\" )
 	if input:
 		position += basis * Vector3(input.x,0,input.y) * delta * 2
-		
+	if Input.is_action_just_pressed(\"ui_accept\"):
+		for x in range(30):
+			var new_missile : Missile_Guided = missile.instantiate()
+			new_missile.target = get_node(\"../../Collection 3\")
+			get_parent().get_parent().add_child(new_missile)
+			new_missile.global_position = Vector3(107.86, -7, 0)
+			new_missile.global_rotation = Vector3(0,deg_to_rad(111.2), 0)
+			await get_tree().physics_frame
+			await get_tree().physics_frame
+			
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		rotation.x -= event.relative.y * 0.001
@@ -37,11 +55,15 @@ transform = Transform3D(-4.3711385e-08, 0, -0.99999994, 0, 1, 0, 0.99999994, 0, 
 [node name="panelling_001" parent="." index="3" unique_id=1420616634]
 transform = Transform3D(-4.3711385e-08, 0, -0.99999994, 0, 1, 0, 0.99999994, 0, -4.3711385e-08, 0, 0, 0)
 
+[node name="StaticBody3D" type="StaticBody3D" parent="panelling_001" index="0" unique_id=389106422]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="panelling_001/StaticBody3D" index="0" unique_id=890453493]
+shape = SubResource("ConvexPolygonShape3D_flrvv")
+
 [node name="OccluderInstance3D" parent="." index="4" unique_id=1869795870]
 transform = Transform3D(-4.3711385e-08, 0, -0.99999994, 0, 1, 0, 0.99999994, 0, -4.3711385e-08, 0, 0, 0)
 visible = false
 
 [node name="Camera3D" type="Camera3D" parent="." index="5" unique_id=2139534552]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0727826, -25.747559)
-current = true
 script = SubResource("GDScript_flrvv")
