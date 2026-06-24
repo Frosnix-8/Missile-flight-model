@@ -13,22 +13,34 @@ var missile := preload(\"res://geroteng_g_1.tscn\")
 func _ready() -> void:
 	if get_parent().name != \"Collection 2\":
 		current = false
+		queue_free()
 	else:
 		current = true
 
+var ticks := 0
+func _physics_process(delta: float) -> void:
+	ticks += 1
+	if ticks % 15 != 0:
+		return
+	for x in get_node(\"../../\").get_children():
+		if x is Missile_Guided:
+			print(\"there are \", x.instance_count, \" missiles in the instance!\")
+			break
+	
 func _process(delta: float) -> void:
 	var input = Input.get_vector(\"ui_left\", \"ui_right\",\"ui_up\", \"ui_down\" )
 	if input:
-		position += basis * Vector3(input.x,0,input.y) * delta * 2
+		position += basis * Vector3(input.x,0,input.y) * delta * 10
 	if Input.is_action_just_pressed(\"ui_accept\"):
-		for x in range(30):
+		for x in range(10):
 			var new_missile : Missile_Guided = missile.instantiate()
 			new_missile.target = get_node(\"../../Collection 3\")
+			new_missile.owner_ship = get_parent()
 			get_parent().get_parent().add_child(new_missile)
-			new_missile.global_position = Vector3(107.86, -7, 0)
+			new_missile.global_position = Vector3(107.86, -5, 0)
 			new_missile.global_rotation = Vector3(0,deg_to_rad(111.2), 0)
-			await get_tree().physics_frame
-			await get_tree().physics_frame
+
+			
 			
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -62,7 +74,6 @@ shape = SubResource("ConvexPolygonShape3D_flrvv")
 
 [node name="OccluderInstance3D" parent="." index="4" unique_id=1869795870]
 transform = Transform3D(-4.3711385e-08, 0, -0.99999994, 0, 1, 0, 0.99999994, 0, -4.3711385e-08, 0, 0, 0)
-visible = false
 
 [node name="Camera3D" type="Camera3D" parent="." index="5" unique_id=2139534552]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0727826, -25.747559)

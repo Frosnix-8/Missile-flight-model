@@ -1,0 +1,663 @@
+extends RigidBody3D
+##Guided Missile. Features a few chase methods and is highly customizable,
+##featuring many performance settings that can be tinkered (use a file to change them with settings).
+##About 100-200 missiles can be loaded before having heavy impacts
+##on performance. Damage calculations are not done yet. For more rounded trajectories,
+##top speed, acceleration, rotation speeds should be close to each other.
+class_name Missile_Guided
+
+##amount of missile instances in the current tree.
+static var instance_count := 0
+##amount of missile instances with RCS enabled in the current tree.
+static var RCS_instance_count := 0
+##performance level assigned depending on the amount of missiles in a scene.
+##static because every missile shares it — no need to calculate per-missile, just once per frame.
+static var global_performance_level := -1
+##the main viewport's active camera. Allows distance-based LOD for various systems.
+##static since there's only ever one active camera at a time.
+static var cached_camera : Camera3D
+##frame on which the camera was cached. Recached once per new frame.
+static var cached_camera_frame : int = 0
+static var exploding_missiles : int = 0
+
+#region static performance variables
+##Past this amount of RCS missiles, RCS will no longer render.
+const PERFORMANCE_RCS_MAX_INSTANCES := 20
+##Distance past which RCS will not render.
+const PERFORMANCE_RCS_DISTANCE_MAX := 500
+##Distance past which RCS no longer plays audio.
+const PERFORMANCE_RCS_AUDIO_DISTANCE_MAX := 500
+##Distance from target beyond which the performance level is increased.
+##higher levels mean the missile calculates trajectories less often.
+const PERFORMANCE_POLL_DISTANCE := 400
+##Distance from target beyond which performance level is increased again.
+const PERFORMANCE_POLL_DISTANCE_FAR := 800
+##instance count beyond which performance level is increased.
+const PERFORMANCE_POLL_INSTANCE_COUNT := 40
+##instance count beyond which performance level is increased again.
+const PERFORMANCE_POLL_INSTANCE_COUNT_FAR := 70
+##instance count beyond which performance level is increased more.
+const PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME := 100
+##whether RCS is disabled for performance reasons.
+var performance_RCS_disabled := false
+#endregion
+
+##ID of this missile if it has RCS. Higher = more RCS missiles existed at spawn time.
+var RCS_this_id := 0
+##ID of this missile. Higher = more missiles existed at spawn time.
+var this_id := 0
+
+@export_category("Debug")
+##Prevents RCS from hiding for cosmetic or debug reasons.
+@export var show_all_thrusters := false
+##Disables fuel timer.
+@export var unlimited_fuel := false
+##Disables all missile strafing. Without linear velocity damping, makes the missile uncontrollable.
+@export var disable_strafe := false
+
+@export_category("Chase Modes")
+##Chase modes.
+enum chasemodes {
+	PURSUIT,              ##Goes after the target's current position irrespective of its velocity. Easier to evade.
+	PROPORTIONAL_NAVIGATION ##Keeps a constant bearing relative to the target, hitting the future position of the target.
+}
+##How the missile will pursue targets.
+@export var chase_mode : chasemodes = chasemodes.PURSUIT
+##Current pursue mode. PN doesn't always use PN tracking (e.g. when the missile isn't facing the target).
+var current_chase_mode : chasemodes = chase_mode
+
+@export_category("Track Modes")
+enum trackmodes {
+	PASSIVE_INFRARED,       ##Chases based on the heat signature of the target.
+	PASSIVE_CROSSFIRE,      ##Chases using built-in pattern recognition.
+	PASSIVE_ANTI_RADIATION, ##Chases based on radar emissions emitted by the target.
+	SEMI_ACTIVE_LASER,      ##Chases based on laser targets provided by the mothership.
+	SEMI_ACTIVE_RADAR,      ##Chases based on radar data supplied from the mothership.
+	ACTIVE_RADAR,           ##Chases based on radar data from a built-in radar.
+}
+@export var track_mode : trackmodes = trackmodes.PASSIVE_INFRARED
+
+@onready var Thrust_forward   : Missile_thruster = $ThrustEffect
+@onready var Thrust_right     : Missile_thruster = $ThrustEffect6
+@onready var Thrust_left      : Missile_thruster = $ThrustEffect7
+@onready var Thrust_up        : Missile_thruster = $ThrustEffect5
+@onready var Thrust_down      : Missile_thruster = $ThrustEffect2
+@onready var Thrust_left_aft  : Missile_thruster = $ThrustEffect8
+@onready var Thrust_right_aft : Missile_thruster = $ThrustEffect9
+@onready var Thrust_up_aft    : Missile_thruster = $ThrustEffect4
+@onready var Thrust_down_aft  : Missile_thruster = $ThrustEffect3
+
+enum thrusters {
+	FORWARD,
+	DOWN,
+	DOWN_AFT,
+	LEFT,
+	LEFT_AFT,
+	RIGHT,
+	RIGHT_AFT,
+	UP,
+	UP_AFT
+}
+var all_thrusters       : Array[Missile_thruster]
+var active_thrusters    : Array[bool] = [false,false,false,false,false,false,false,false,false]
+var thruster_to_activate: Array[bool] = [false,false,false,false,false,false,false,false,false]
+
+##ShapeCast that detects objects. Faces missile attitude, length = distance traveled per frame.
+@onready var collision_check  : ShapeCast3D        = $impactcheck
+##Audio for main thrust.
+@onready var audio_main_thrust: AudioStreamPlayer3D = $MAINTHRUST
+##Audio for RCS effects. Has polyphony.
+@onready var audio_RCS        : AudioStreamPlayer3D = $RCS
+##Whether the missile is expecting to play RCS audio this frame.
+var RCS_audio_queued := false
+
+@export_category("Missile specifications")
+##Speed when launched from ship. An impulse of n * mass newtons is applied in -Z (forward) on spawn.
+@export var launch_speed       : float = 10.0
+##Time before the missile starts maneuvering.
+@export var launch_clear_time  : float = 0.5
+##Time during which the missile cannot collide with its owner.
+@export var arm_time           : float = 2.0
+var can_maneuver := false
+var armed        := false
+##Max forward speed. If the missile exceeds this along its forward axis, it slows down.
+@export var max_straight_line_speed : float = 1000
+##Agility: max sideways acceleration of the missile.
+@export var linear_agility     : float = 75.0
+##Forward acceleration in m/s².
+@export var forward_acceleration: float = 120.0
+##Angular agility: how much angular torque the missile can produce.
+@export var angular_agility    : float = PI * 2
+##Time in seconds before the missile depletes its fuel.
+@export var thrust_time        : float = 10.0
+##When the fuel timer runs out, should the missile explode?
+@export var explode_on_fuel_loss := false
+
+@export_category("Visual Parameters")
+##Disables all visual and auditive RCS features. Does not disable strafing.
+@export var hide_RCS    := false
+##Hides vapor trail. Slight performance boost in dense scenes.
+@export var hide_trail  := false
+##Hides particles. Slight performance boost.
+@export var hide_particles := false
+
+@export_category("Audio Parameters")
+##Volume variation in dB of the main thrusters.
+@export var main_thrust_volume_db  : float = 0.0
+##Pitch variation of the main thrusters.
+@export var main_thrust_pitch_scale: float = 1.0
+##Volume in dB of RCS.
+@export var thrust_volume_db  : float = 0.0
+##Pitch scale of RCS thrusters.
+@export var thrust_pitch_scale: float = 1.0
+##Volume variation of explosions.
+@export var explosion_volume_db: float = -19
+##Volume variation for ALL sounds on this node.
+@export var master_effect_volume_db: float = 0.0
+
+@export_category("Target")
+##Debug target. Best assigned via script in real implementations.
+@export var target    : Node3D
+##Ship that owns this missile.
+var owner_ship        : Node3D
+
+##Where the missile needs to go (not necessarily where the target entity is).
+var target_position   := Vector3.ZERO
+##PN intercept aim point. Separate from target_position since PN uses a different algorithm.
+var PN_aim_point      := Vector3.ZERO
+##Speed of the target entity.
+var target_velocity   := Vector3.ZERO
+##Whether the missile is facing the target.
+var is_facing_target  : bool = false
+##If there is no target, this is true. Turns the missile into a dumbfire rocket.
+var no_target         := true
+##Set to true on collision.
+var hit_target        := false
+
+##Physics tick counter, increments each physics frame.
+var tick_avionics     := 0
+##0 = highest fidelity, higher = less frequent avionics updates.
+var performance_level := 0
+##Tick ratios for avionics computation. Index = performance level, value = compute every n frames.
+@export var avionic_tick_ratios: Array[int] = [1,2,3,4,5]
+##Compute avionics every n-th physics frame.
+var current_avionic_tick_ratio := 1
+
+##Cached inverse basis, recomputed once per avionics tick that uses it.
+var _cached_inv_basis : Basis
+##Cached distance to target, recomputed in compute_tick_avionics_ratio.
+var _cached_dist_to_target : float = 0.0
+##Cached aim point (PURSUIT or PN depending on current_chase_mode).
+var _aim_point : Vector3 = Vector3.ZERO
+
+
+func _ready() -> void:
+	if hide_particles:
+		$GPUParticles3D.amount_ratio = 0
+	if hide_trail:
+		$VaporTrail.num_points = 1
+		$VaporTrail.update_interval = 100
+	max_straight_line_speed = max_straight_line_speed * max_straight_line_speed
+	instance_count += 1
+	this_id = instance_count
+
+	var show_rcs_later := false
+	if !hide_RCS:
+		RCS_instance_count += 1
+		RCS_this_id = RCS_instance_count
+		show_rcs_later = true
+		hide_RCS = true
+
+	all_thrusters.assign([
+		Thrust_forward,
+		Thrust_down, Thrust_down_aft,
+		Thrust_left,  Thrust_left_aft,
+		Thrust_right, Thrust_right_aft,
+		Thrust_up,    Thrust_up_aft,
+	])
+
+	for x : Missile_thruster in all_thrusters:
+		if x.animation_start() != Error.OK:
+			push_error(self, " failed to start thruster animation on ", x)
+		if !show_all_thrusters:
+			x.ide()
+
+	audio_RCS.volume_db       = thrust_volume_db
+	audio_RCS.pitch_scale    *= thrust_pitch_scale
+	audio_main_thrust.pitch_scale *= main_thrust_pitch_scale
+	audio_main_thrust.volume_db   = main_thrust_volume_db
+	$explosion.volume_db      = explosion_volume_db
+
+	angular_agility      *= randf_range(0.9, 1.1)
+	linear_agility       *= randf_range(0.9, 1.1)
+	forward_acceleration *= randf_range(0.9, 1.1)
+	launch_clear_time    *= randf_range(0.6, 1.0)
+	launch_speed         *= randf_range(0.9, 1.1)
+
+	await get_tree().physics_frame
+	apply_central_impulse(basis * Vector3.FORWARD * launch_speed * mass)
+	await get_tree().create_timer(launch_clear_time).timeout
+	can_maneuver = true
+	hide_RCS = !show_rcs_later
+	await get_tree().create_timer(max(0.1, arm_time - launch_clear_time)).timeout
+	armed = true
+
+
+func _physics_process(delta: float) -> void:
+	tick_avionics += 1
+	RCS_audio_queued = false
+	thrust_time -= delta
+
+	if tick_avionics % 15 == 0:
+		global_performance_level = -1
+		compute_tick_avionics_ratio()
+		allow_RCS()
+		missile_LOD()
+		print(performance_level)
+
+	if thrust_time <= 0 and !unlimited_fuel:
+		_on_fuel_depleted()
+		return
+
+	if tick_avionics % current_avionic_tick_ratio == 0:
+		_cached_inv_basis = basis.inverse()
+		compute_target_position(delta)
+		compute_thrust()
+		compute_rotation_thrust()
+
+	missile_thruster_set_visibility()
+	_rcs_audio()
+
+	collision_check.target_position = collision_check.to_local(linear_velocity) * delta * 0.5
+	$"missile final_001".scale = max(1.0, _distance_to_cam()) * 0.01 * Vector3.ONE + Vector3.ONE
+
+
+##Handles fuel depletion: frees thrusters, explodes or drifts based on settings.
+func _on_fuel_depleted() -> void:
+	for x : Missile_thruster in all_thrusters:
+		x.queue_free()
+	if explode_on_fuel_loss:
+		missile_impact(null)
+	else:
+		set_physics_process(false)
+		await get_tree().create_timer(10.0).timeout
+		queue_free()
+
+
+##Returns the current aim point based on chase mode.
+func _get_aim_point() -> Vector3:
+	if current_chase_mode == chasemodes.PROPORTIONAL_NAVIGATION:
+		return PN_aim_point
+	return target_position
+
+
+##Computes how the missile should strafe relative to the target. Decides based on chase mode.
+func compute_thrust() -> void:
+	if no_target or !can_maneuver:
+		missile_thrust(Vector3.FORWARD, true)
+		return
+
+	match chase_mode:
+		chasemodes.PURSUIT:
+			current_chase_mode = chasemodes.PURSUIT
+		chasemodes.PROPORTIONAL_NAVIGATION:
+			if is_facing_target:
+				current_chase_mode = chasemodes.PROPORTIONAL_NAVIGATION
+				compute_pn_intercept_point()
+			else:
+				current_chase_mode = chasemodes.PURSUIT
+
+	## Update aim point after PN intercept is computed (if applicable).
+	_aim_point = _get_aim_point()
+	compute_strafe_thrust()
+
+
+##Computes which local thrust axes to activate to cancel all lateral drift.
+func compute_strafe_thrust() -> void:
+	var local_velocity: Vector3 = _cached_inv_basis * linear_velocity
+	var final_thrust := Vector3.ZERO
+	# only correct X and Y axes (lateral drift), Z handled separately in missile_thrust
+	for axis: int in range(2):
+		final_thrust[axis] = -sign(local_velocity[axis])
+
+	var _hide: bool = Vector2(local_velocity.x, local_velocity.y).length() < 2.0
+	missile_thrust(final_thrust, true, _hide)
+
+
+##Computes the necessary rotation forces to face the desired direction.
+func compute_rotation_thrust() -> void:
+	if no_target or !can_maneuver:
+		return
+
+	var rotation_error : Vector3 = get_rotation_error()
+	var error_angle    : float   = rotation_error.length()
+
+	## If nearly facing the target, snap smoothly to it.
+	if error_angle < 0.1:
+		var look_dir: Vector3 = (_aim_point - global_position).normalized()
+		var up      : Vector3 = basis.y
+
+		if abs(look_dir.dot(up)) > 0.99:
+			up = basis.x
+
+		var to_target_quat: Quaternion = Basis.looking_at(look_dir, up).get_rotation_quaternion()
+		missile_force_rotation(to_target_quat)
+		return
+
+	var rotation_axis   : Vector3 = rotation_error / error_angle
+	var spin_towards    : float   = angular_velocity.dot(rotation_axis)
+	var angle_to_stop   : float   = (spin_towards * spin_towards) / (2.0 * angular_agility)
+
+	var final_torque: Vector3
+	if angle_to_stop >= error_angle and spin_towards > 0.0:
+		final_torque = -rotation_axis
+	else:
+		final_torque = rotation_axis
+
+	var _hide := final_torque.length() < 0.2
+	missile_rotation(final_torque, false, false, _hide)
+
+
+##Updates target position, target velocity, and whether the missile is facing the target.
+func compute_target_position(_delta: float) -> void:
+	if !target:
+		no_target = true
+		return
+	no_target = false
+	target_position = target.global_position
+	target_velocity = Vector3.ZERO
+
+	if target is CharacterBody3D:
+		target_velocity = (target as CharacterBody3D).velocity
+	elif target is RigidBody3D:
+		target_velocity = (target as RigidBody3D).linear_velocity
+
+	is_facing_target = get_position_error().normalized().dot(linear_velocity.normalized()) > 0.1
+
+
+##Computes the PN intercept point: where the target will be when the missile arrives.
+func compute_pn_intercept_point() -> void:
+	var los            : Vector3 = target_position - global_position
+	var range_to_target: float   = los.length()
+	if range_to_target < 2.0:
+		PN_aim_point = target_position
+		return
+
+	var relative_velocity: Vector3 = target_velocity - linear_velocity
+	var closing_speed    : float   = -relative_velocity.dot(los / range_to_target)
+	if closing_speed <= 0.0:
+		PN_aim_point = target_position  ## not closing — just face the target
+		return
+
+	var time_to_intercept: float = range_to_target / closing_speed
+	PN_aim_point = target_position + target_velocity * time_to_intercept
+
+
+##Returns a vector pointing from the missile to the target.
+func get_position_error() -> Vector3:
+	return target_position - global_position
+
+
+##Returns the rotation axis*angle needed to align missile forward with the aim point.
+func get_rotation_error() -> Vector3:
+	if !target or linear_velocity.length_squared() < 1.0:
+		return Vector3.ZERO
+
+	var desired_forward: Vector3 = (_aim_point - global_position).normalized()
+	var current_forward: Vector3 = -global_transform.basis.z
+	var dot            : float   = current_forward.dot(desired_forward)
+
+	## Degenerate case: nearly antiparallel — pick any perpendicular axis.
+	if dot < -0.9999:
+		var fallback: Vector3 = current_forward.cross(Vector3.UP)
+		if fallback.length_squared() < 0.001:
+			fallback = current_forward.cross(Vector3.RIGHT)
+		return fallback.normalized() * PI
+
+	var rotation_diff: Quaternion = Quaternion(current_forward, desired_forward)
+	return rotation_diff.get_axis() * rotation_diff.get_angle()
+
+
+##Applies thruster visibility changes only when state actually changed.
+##thruster_to_activate is always reset here so stale flags don't persist across avionics ticks.
+func missile_thruster_set_visibility() -> void:
+	for i: int in all_thrusters.size():
+		if thruster_to_activate[i] == active_thrusters[i]:
+			continue
+		if thruster_to_activate[i]:
+			all_thrusters[i].how()
+		else:
+			all_thrusters[i].ide()
+		active_thrusters[i] = thruster_to_activate[i]
+
+	thruster_to_activate.fill(false)
+
+
+##Applies physics forces based on the supplied direction. Also flags which RCS thrusters to show.
+##Uses _cached_inv_basis — must be updated before calling.
+func missile_thrust(direction: Vector3 = Vector3.ZERO, reset: bool = false, _hide: bool = false) -> void:
+	if reset:
+		thruster_to_activate.fill(false)
+
+	## Z: only allow braking (clamp to [-1,0]), then force forward thrust.
+	direction.z = -1.0
+
+	if disable_strafe:
+		direction.x = 0.0
+		direction.y = 0.0
+
+	if !_hide and !hide_RCS and !performance_RCS_disabled:
+		match sign(direction.x):
+			1.0:
+				thruster_to_activate[thrusters.RIGHT]     = true
+				thruster_to_activate[thrusters.RIGHT_AFT] = true
+			-1.0:
+				thruster_to_activate[thrusters.LEFT]      = true
+				thruster_to_activate[thrusters.LEFT_AFT]  = true
+
+		match sign(direction.y):
+			1.0:
+				thruster_to_activate[thrusters.UP]        = true
+				thruster_to_activate[thrusters.UP_AFT]    = true
+			-1.0:
+				thruster_to_activate[thrusters.DOWN]      = true
+				thruster_to_activate[thrusters.DOWN_AFT]  = true
+
+	if !_hide:
+		RCS_audio_queued = true
+
+	thruster_to_activate[thrusters.FORWARD] = true
+
+	if linear_velocity.length_squared() > max_straight_line_speed:
+		direction.z = 0.0
+
+	apply_central_force(basis * (direction * mass * Vector3(linear_agility, linear_agility, forward_acceleration) * current_avionic_tick_ratio))
+
+
+##Snaps the missile toward the supplied quaternion via slerp.
+func missile_force_rotation(face: Quaternion, weight: float = 20.0) -> void:
+	var current_rotation: Quaternion = basis.get_rotation_quaternion().normalized()
+	current_rotation = current_rotation.slerp(face, 0.5 * get_physics_process_delta_time() * weight)
+	basis = Basis(current_rotation)
+
+
+##Applies torque based on the supplied rotation direction. Also flags which RCS thrusters to show.
+func missile_rotation(direction: Vector3 = Vector3.ZERO, reset: bool = true, visual_only: bool = false, _hide: bool = false) -> void:
+	if reset:
+		thruster_to_activate.fill(false)
+
+	direction = _cached_inv_basis * direction
+	var temporary_multiplier := 0.5 if direction.length() < deg_to_rad(15) else 1.0
+
+	if !_hide and !hide_RCS and !performance_RCS_disabled:
+		match sign(direction.x):
+			1.0:
+				thruster_to_activate[thrusters.UP]       = true
+				thruster_to_activate[thrusters.DOWN_AFT]  = true
+				thruster_to_activate[thrusters.DOWN]      = false
+			-1.0:
+				thruster_to_activate[thrusters.DOWN]     = true
+				thruster_to_activate[thrusters.UP_AFT]   = true
+				thruster_to_activate[thrusters.UP]        = false
+
+		match sign(direction.y):
+			1.0:
+				thruster_to_activate[thrusters.LEFT]      = true
+				thruster_to_activate[thrusters.RIGHT_AFT] = true
+				thruster_to_activate[thrusters.RIGHT]     = false
+			-1.0:
+				thruster_to_activate[thrusters.RIGHT]     = true
+				thruster_to_activate[thrusters.LEFT_AFT]  = true
+				thruster_to_activate[thrusters.LEFT]      = false
+
+	if !_hide:
+		RCS_audio_queued = true
+
+	if visual_only:
+		return
+
+	apply_torque(basis * direction * angular_agility * temporary_multiplier * current_avionic_tick_ratio)
+
+
+##Logic for what happens when the missile collides with something.
+func missile_impact(collider: Node3D) -> void:
+	if hit_target:
+		return
+	if collider and (collider == owner_ship or collider.get_parent().get_parent() == owner_ship) and !armed:
+		return
+
+	#print(collider)
+	exploding_missiles += 1
+	hit_target = true
+
+	if collider:
+		global_position += linear_velocity * get_physics_process_delta_time()
+
+	$explosion.play()
+	audio_main_thrust.queue_free()
+	audio_RCS.queue_free()
+
+	if performance_level < 2 or exploding_missiles < 10:
+		$impact.emitting = true
+	else:
+		push_warning("high performance or high explosion count, cancelling explosion.")
+		$impact.queue_free()
+
+	for x : Missile_thruster in all_thrusters:
+		if x.constant_thrust:
+			x.shutdown()
+		x.queue_free()
+
+	set_physics_process(false)
+	$LOD.queue_free()
+	$"missile final_001".queue_free()
+	$Text_008.queue_free()
+	$impactcheck.queue_free()
+	$VaporTrail.update_interval = 0.1
+	thrust_time = -1
+	freeze = true
+
+	await get_tree().create_timer(4.0).timeout
+	queue_free()
+
+
+func missile_LOD() -> void:
+	var dist_cam := _distance_to_cam()
+	var far      := dist_cam > PERFORMANCE_POLL_DISTANCE
+	$"missile final_001".visible = !far
+	$Text_008.visible            = !far
+	$LOD.visible                 = far
+	$GPUParticles3D.emitting     = !far
+
+	if instance_count > PERFORMANCE_POLL_INSTANCE_COUNT and this_id > PERFORMANCE_POLL_INSTANCE_COUNT:
+		$GPUParticles3D.emitting = false
+
+	$VaporTrail.visible = not (
+		instance_count > PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME + 50
+		and this_id > PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME
+	)
+
+
+##Plays RCS audio if conditions allow (distance, instance count, audio queued).
+func _rcs_audio() -> void:
+	if hide_RCS or !RCS_audio_queued:
+		return
+	RCS_audio_queued = false
+	if randi_range(0, 2) != 0:
+		return
+	var dist := _distance_to_cam()
+	if (RCS_instance_count > 20 and RCS_this_id > 20 and dist > 50) or dist > PERFORMANCE_RCS_AUDIO_DISTANCE_MAX:
+		return
+	audio_RCS.play()
+
+
+##Returns the distance from the missile to the target.
+func _distance_to_target() -> float:
+	return _cached_dist_to_target
+
+
+##Returns the distance to the active camera for the viewport. Cached once per physics frame.
+func _distance_to_cam() -> float:
+	var current_frame := Engine.get_physics_frames()
+	if !cached_camera or cached_camera_frame != current_frame:
+		cached_camera       = get_viewport().get_camera_3d()
+		cached_camera_frame = current_frame
+	return global_position.distance_to(cached_camera.global_position)
+
+
+##Calculates performance level and avionics tick ratio for this missile instance.
+func compute_tick_avionics_ratio() -> void:
+	_cached_dist_to_target = target_position.distance_to(global_position)
+	var distance           := _cached_dist_to_target
+	print(distance)
+	var new_performance_level: int
+	if distance < PERFORMANCE_POLL_DISTANCE:
+		new_performance_level = 0
+	elif distance < PERFORMANCE_POLL_DISTANCE_FAR:
+		new_performance_level = 1
+	else:
+		new_performance_level = 2
+
+	## global_performance_level is computed once per 15-tick block, shared across all missiles.
+	if global_performance_level == -1:
+		if instance_count < PERFORMANCE_POLL_INSTANCE_COUNT:
+			global_performance_level = 0
+		elif instance_count < PERFORMANCE_POLL_INSTANCE_COUNT_FAR:
+			global_performance_level = 1
+		elif instance_count < PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME:
+			global_performance_level = 2
+		else:
+			global_performance_level = 3
+
+	performance_level = clampi(
+	new_performance_level + global_performance_level,
+	0,
+	avionic_tick_ratios.size() - 1
+	)
+	current_avionic_tick_ratio = avionic_tick_ratios[performance_level]
+
+
+##Disables RCS visuals/audio when too many missiles are on screen or missile is too far.
+func allow_RCS() -> void:
+	performance_RCS_disabled = (
+		RCS_instance_count > PERFORMANCE_RCS_MAX_INSTANCES
+		or _distance_to_cam() > PERFORMANCE_RCS_DISTANCE_MAX
+	)
+
+
+##Called when the ShapeCast detects a body.
+func _on_impactcheck_body_hit(collider: Node3D) -> void:
+	missile_impact(collider)
+
+
+##Called when the RigidBody itself enters a body (backup collision path).
+func _on_body_entered(body: Node) -> void:
+	missile_impact(body as Node3D)
+
+
+func _exit_tree() -> void:
+	if hit_target:
+		exploding_missiles -= 1
+	instance_count -= 1
+	if !hide_RCS:
+		RCS_instance_count -= 1

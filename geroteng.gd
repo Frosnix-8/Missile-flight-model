@@ -1,5 +1,9 @@
 extends RigidBody3D
-##Guided Missile. Features a few chase methods and is highly customizable.
+##Guided Missile. Features a few chase methods and is highly customizable, 
+##featuring many performance settings that can be tinkered (use a file to change them with settings). 
+##About 100-200 missiles can be loaded before having heavy impacts
+##on performance. HOwever, damage calculations are not done yet. For more roundede trajectories, 
+##top speed, acceleration, rotation speeds should be close to each other.
 class_name Missile_Guided
 ##amount of missile instances in the current tree.
 static var instance_count := 0
@@ -116,8 +120,11 @@ var RCS_audio_queued := false
 ##Speed when launched from ship. When the missile is instanciated (or in the future, activated?), an impulse of n * mass newtons is applied in the negative Z basis (forward)
 @export var launch_speed: float = 10.0
 ##Time before the missile starts maneuvering.
-@export var launch_clear_time : float = 1.0
+@export var launch_clear_time : float = 0.5
+##Time during which the missile cannot collide with its owner.
+@export var arm_time : float = 2.0
 var can_maneuver := false
+var armed := false
 ##Max forward speed of the missile. this doesn't correspond to strafing speed limits for technical reasons. If the missile exceeds this speed in its forward axis, it'll slow down. 
 @export var max_straight_line_speed : float = 1000
 ##agility of the missile, IE the strength with which it can thrust sideways. 
@@ -190,11 +197,15 @@ func _ready() -> void:
 	if hide_trail:
 		$VaporTrail.num_points = 1
 		$VaporTrail.update_interval = 100
+		
 	instance_count += 1
 	this_id = instance_count
+	var show_rcs_later := false
 	if !hide_RCS:
 		RCS_instance_count += 1
 		RCS_this_id = RCS_instance_count
+		show_rcs_later = true
+		hide_RCS = true
 	all_thrusters.append(Thrust_forward)
 	all_thrusters.append(Thrust_down)
 	all_thrusters.append(Thrust_down_aft)
@@ -215,17 +226,20 @@ func _ready() -> void:
 	audio_main_thrust.pitch_scale *= main_thrust_pitch_scale
 	audio_main_thrust.volume_db = main_thrust_volume_db
 	$explosion.volume_db = explosion_volume_db
-	apply_central_impulse(basis * Vector3(0,0,-launch_speed))
+	
 	
 	angular_agility *= randf_range(0.9,1.1)
 	linear_agility *= randf_range(0.9,1.1)
 	forward_acceleration *= randf_range(0.9,1.1)
 	launch_clear_time *= randf_range(0.6,1.0)
 	launch_speed *= randf_range(0.9,1.1)
-	
+	await get_tree().physics_frame
+	apply_central_impulse(basis *  Vector3.FORWARD * launch_speed * mass)
 	await get_tree().create_timer(launch_clear_time).timeout
 	can_maneuver = true
-	
+	hide_RCS = !show_rcs_later
+	await get_tree().create_timer(max(0.1, arm_time - launch_clear_time)).timeout
+	armed = true
 
 
 func _physics_process(delta: float) -> void:
@@ -546,13 +560,17 @@ func missile_rotation(direction: Vector3 = Vector3.ZERO, reset := true, visual_o
 
 ##Logic for what happens when the missile collides.
 func missile_impact(collider: Node3D) -> void:
-	exploding_missiles += 1
 	if hit_target:
 		return
+	elif (collider == owner_ship or collider.get_parent().get_parent() == owner_ship) and !armed :
+		return
+	print(collider)
+	exploding_missiles += 1
+	
 	#var root:= get_tree().root.get_child(0)
 	#var after_death := [$impact,$explosion,$VaporTrail]
 	if collider:
-		global_position = collider.global_position
+		global_position = global_position + linear_velocity * get_physics_process_delta_time()
 	#$explosion.pitch_scale = 10
 	#$Camera3D.queue_free()
 	$explosion.play()
@@ -599,7 +617,7 @@ func missile_LOD() -> void:
 	if instance_count > PERFORMANCE_POLL_INSTANCE_COUNT and this_id > PERFORMANCE_POLL_INSTANCE_COUNT:
 		$GPUParticles3D.emitting = false
 		
-	if instance_count > PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME and this_id > PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME:
+	if instance_count > PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME + 50 and this_id > PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME:
 		$VaporTrail.hide()
 	else:
 		$VaporTrail.show()

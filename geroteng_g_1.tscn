@@ -1,6 +1,6 @@
 [gd_scene format=4 uid="uid://cen33ej277jql"]
 
-[ext_resource type="Script" uid="uid://1kt5cwagrmf1" path="res://geroteng.gd" id="1_7qqlg"]
+[ext_resource type="Script" uid="uid://d0b1ldji5sw2t" path="res://geroteng_redux.gd" id="1_mvhaw"]
 [ext_resource type="Texture2D" uid="uid://crso0f6fyucp6" path="res://meshes/GerotengG1(1)_GerotengG1 Albedo.webp" id="2_m3eeq"]
 [ext_resource type="Texture2D" uid="uid://sq4qk3jhgn8v" path="res://meshes/GerotengG1(1)_GerotengG1 ORM.webp" id="3_u0wu7"]
 [ext_resource type="PackedScene" uid="uid://c515r8h7q7br8" path="res://thrusts/thrust/thrust.tscn" id="4_iwfhy"]
@@ -140,8 +140,12 @@ func _physics_process(_delta: float) -> void:
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_m3eeq"]
 emission_enabled = true
 emission = Color(0.3924088, 0.7796132, 0.99834996, 1)
-emission_energy_multiplier = 4.14
+emission_energy_multiplier = 1.5
 billboard_keep_scale = true
+proximity_fade_enabled = true
+proximity_fade_distance = 91.02
+distance_fade_mode = 2
+distance_fade_min_distance = 1.0
 
 [sub_resource type="Curve" id="Curve_m3eeq"]
 _data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.10638299, 1), 3.7720697, 0.0, 0, 0, Vector2(0.69841266, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
@@ -171,6 +175,7 @@ radial_segments = 16
 rings = 16
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_or73b"]
+lifetime_randomness = 0.51
 particle_flag_damping_as_friction = true
 direction = Vector3(0, 0, 1)
 spread = 16.412
@@ -198,18 +203,17 @@ continuous_cd = true
 linear_damp_mode = 1
 angular_damp_mode = 1
 angular_damp = 1.0
-script = ExtResource("1_7qqlg")
+script = ExtResource("1_mvhaw")
 unlimited_fuel = true
-launch_speed = 50.0
-launch_clear_time = 0.3
-max_straight_line_speed = 300.0
+chase_mode = 1
+launch_speed = 100.0
+max_straight_line_speed = 500.0
 linear_agility = 200.0
 forward_acceleration = 200.0
-angular_agility = 2.157
-explode_on_fuel_loss = true
-main_thrust_volume_db = -10.0
-thrust_pitch_scale = 0.53
-explosion_volume_db = 0
+angular_agility = 2.718
+main_thrust_pitch_scale = 2.125
+thrust_pitch_scale = 1.025
+explosion_volume_db = -1.8599999999999999
 
 [node name="LOD" type="MeshInstance3D" parent="." unique_id=1572315421]
 transform = Transform3D(1, 0, 0, 0, -4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0)
@@ -282,10 +286,10 @@ transform = Transform3D(0.834, 1.4752594e-07, 6.4485635e-15, 0, -4.9175313e-08, 
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.0040925)
 gi_mode = 2
 emitting = false
-amount = 1077
+amount = 102
 lifetime = 3.5599999999999996
 one_shot = true
-explosiveness = 0.96
+explosiveness = 1.0
 process_material = SubResource("ParticleProcessMaterial_m3eeq")
 draw_pass_1 = SubResource("SphereMesh_m3eeq")
 
@@ -310,7 +314,7 @@ doppler_tracking = 1
 
 [node name="explosion" type="AudioStreamPlayer3D" parent="." unique_id=417225405]
 stream = ExtResource("5_m3eeq")
-unit_size = 69.19
+unit_size = 81.79
 max_db = 0.0
 pitch_scale = 1.25
 attenuation_filter_cutoff_hz = 3579.0
@@ -320,6 +324,9 @@ attenuation_filter_db = -12.1
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.3663995)
 amount = 770
 fixed_fps = 60
+visibility_aabb = AABB(-50, -50, -50, 100, 100, 100)
+transform_align = 1
+transform_align_channel_filter = 1
 process_material = SubResource("ParticleProcessMaterial_or73b")
 draw_pass_1 = SubResource("SphereMesh_ii28r")
 

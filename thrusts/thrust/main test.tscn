@@ -3,21 +3,19 @@
 [ext_resource type="PackedScene" uid="uid://cen33ej277jql" path="res://geroteng_g_1.tscn" id="1_4m83u"]
 [ext_resource type="PackedScene" uid="uid://dgwvyqqag471x" path="res://ship model/hst.tscn" id="2_ntarn"]
 
-[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_4m83u"]
-sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
-ground_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_e2bt7"]
 
-[sub_resource type="Sky" id="Sky_2cq5c"]
-sky_material = SubResource("ProceduralSkyMaterial_4m83u")
+[sub_resource type="Sky" id="Sky_7eva7"]
+sky_material = SubResource("ProceduralSkyMaterial_e2bt7")
 
 [sub_resource type="Environment" id="Environment_ntarn"]
 background_mode = 2
-sky = SubResource("Sky_2cq5c")
-tonemap_mode = 2
+sky = SubResource("Sky_7eva7")
+tonemap_mode = 4
+tonemap_exposure = 1.97
 glow_enabled = true
 glow_intensity = 1.68
 glow_strength = 1.08
-volumetric_fog_enabled = true
 volumetric_fog_density = 0.007
 
 [sub_resource type="BoxMesh" id="BoxMesh_dmihs"]
@@ -67,12 +65,12 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30.877277, 0)
 transform = Transform3D(-0.3612644, 0, 0.9324634, 0, 1, 0, -0.9324634, 0, -0.3612644, 107.86037, 0.99991226, 0)
 
 [node name="Geroteng G-1" parent="." unique_id=1758481796 node_paths=PackedStringArray("target") instance=ExtResource("1_4m83u")]
-transform = Transform3D(-0.36126444, 0, 0.93246347, 0, 1, 0, -0.93246347, 0, -0.36126444, 107.86037, -11.011318, 0)
+transform = Transform3D(-0.36126444, 0, 0.93246347, 0, 1, 0, -0.93246347, 0, -0.36126444, 107.86037, -6.5584803, 0)
 launch_clear_time = 0.535
 angular_agility = 3.093
-hide_RCS = true
-hide_trail = true
-hide_particles = true
+main_thrust_volume_db = 2.2
+main_thrust_pitch_scale = 2.555
+thrust_pitch_scale = 1.33
 target = NodePath("../Collection 3")
 
 [node name="Camera3D2" type="Camera3D" parent="." unique_id=1491982588]
