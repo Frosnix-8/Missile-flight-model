@@ -1,0 +1,47 @@
+[gd_scene format=3 uid="uid://dgwvyqqag471x"]
+
+[ext_resource type="PackedScene" uid="uid://c7chkjgoyiwpr" path="res://ship model/HST-80.glb" id="1_flrvv"]
+
+[sub_resource type="GDScript" id="GDScript_flrvv"]
+resource_name = "debugmovement"
+script/source = "extends Camera3D
+
+
+func _process(delta: float) -> void:
+	var input = Input.get_vector(\"ui_left\", \"ui_right\",\"ui_up\", \"ui_down\" )
+	if input:
+		position += basis * Vector3(input.x,0,input.y) * delta * 2
+		
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		rotation.x -= event.relative.y * 0.001
+		rotation.y -= event.relative.x * 0.001
+	elif event is InputEventMouseButton:
+		if event.pressed:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		else:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+"
+
+[node name="Collection 2" unique_id=225455826 instance=ExtResource("1_flrvv")]
+
+[node name="interior" parent="." index="0" unique_id=52924037]
+transform = Transform3D(-4.3711385e-08, 0, -0.99999994, 0, 1, 0, 0.99999994, 0, -4.3711385e-08, 0, 0, 0)
+
+[node name="LG" parent="." index="1" unique_id=755987586]
+transform = Transform3D(-4.3711385e-08, 0, -0.99999994, 0, 1, 0, 0.99999994, 0, -4.3711385e-08, 0, 0, 0)
+
+[node name="body_001" parent="." index="2" unique_id=872173102]
+transform = Transform3D(-4.3711385e-08, 0, -0.99999994, 0, 1, 0, 0.99999994, 0, -4.3711385e-08, 0, 0, 0)
+
+[node name="panelling_001" parent="." index="3" unique_id=1420616634]
+transform = Transform3D(-4.3711385e-08, 0, -0.99999994, 0, 1, 0, 0.99999994, 0, -4.3711385e-08, 0, 0, 0)
+
+[node name="OccluderInstance3D" parent="." index="4" unique_id=1869795870]
+transform = Transform3D(-4.3711385e-08, 0, -0.99999994, 0, 1, 0, 0.99999994, 0, -4.3711385e-08, 0, 0, 0)
+visible = false
+
+[node name="Camera3D" type="Camera3D" parent="." index="5" unique_id=2139534552]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0727826, -25.747559)
+current = true
+script = SubResource("GDScript_flrvv")

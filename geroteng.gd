@@ -21,13 +21,15 @@ const PERFORMANCE_RCS_DISTANCE_MAX := 500
 ##Past this distance, RCS no longer plays audio
 const PERFORMANCE_RCS_AUDIO_DISTANCE_MAX := 500
 ##Distance from target beyond which the performance level is increased. higher levels mean the missile calculates trajectories less often.
-const PERFORMANCE_POLL_DISTANCE := 600
+const PERFORMANCE_POLL_DISTANCE := 400
 ##Distance from target beyond which performance level is increased again. higher levels mean the missile calculates trajectories less often.
-const PERFORMANCE_POLL_DISTANCE_FAR := 1200
+const PERFORMANCE_POLL_DISTANCE_FAR := 800
 ##instance count beyond which performance level is increased. higher levels mean the missile calculates trajectories less often.
-const PERFORMANCE_POLL_INSTANCE_COUNT := 50
+const PERFORMANCE_POLL_INSTANCE_COUNT := 30
 ##instance count beyond which performance level is increased again. higher levels mean the missile calculates trajectories less often.
-const PERFORMANCE_POLL_INSTANCE_COUNT_FAR := 100
+const PERFORMANCE_POLL_INSTANCE_COUNT_FAR := 65
+##instance count beyond which performance level is increased more. higher levels mean the missile calculates trajectories less often.
+const PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME := 100
 ##whether RCS is disabled for performance reasons.
 var performance_RCS_disabled := false
 #endregion
@@ -95,7 +97,10 @@ var all_thrusters : Array[Missile_thruster]
 
 @export_category("Missile specifications")
 ##Speed when launched from ship. When the missile is instanciated (or in the future, activated?), an impulse of n * mass newtons is applied in the negative Z basis (forward)
-@export var launch_speed: float = 2.0
+@export var launch_speed: float = 10.0
+##Time before the missile starts maneuvering.
+@export var launch_clear_time : float = 1.0
+var can_maneuver := false
 ##Max forward speed of the missile. this doesn't correspond to strafing speed limits for technical reasons. If the missile exceeds this speed in its forward axis, it'll slow down. 
 @export var max_straight_line_speed : float = 1000
 ##agility of the missile, IE the strength with which it can thrust sideways. 
@@ -154,7 +159,7 @@ var tick_avionics := 0
 ##integer marking performance mode of missiles. 0 is highest performance, 1 is half, 2 is a third, etc. Maxes out at 3 or 4 (P = 60/(n + 1) Hz)
 var performance_level := 0
 ##Tick ratios for calculating avionics. Each higher index is a higher performance level, IE: higher fps modes. calculates every n frame(s). Increase for better performance, at the cost of inferior missile accuracy
-@export var avionic_tick_ratios :Array[int]= [1,2,3,5]
+@export var avionic_tick_ratios :Array[int]= [1,2,3,4,5]
 ##compute avionics every n'th physics frame.
 var current_avionic_tick_ratio := 1
 # Called when the node enters the scene tree for the first time.
@@ -186,13 +191,13 @@ func _ready() -> void:
 	audio_main_thrust.volume_db = main_thrust_volume_db
 	$explosion.volume_db = explosion_volume_db
 	apply_central_impulse(basis * Vector3(0,0,-launch_speed))
-	
-	
+	await get_tree().create_timer(launch_clear_time).timeout
+	can_maneuver = true
 	
 
 
 func _physics_process(delta: float) -> void:
-	print(current_avionic_tick_ratio)
+	
 	tick_avionics += 1
 	global_performance_level = -1
 	RCS_audio_queued = false
@@ -203,7 +208,7 @@ func _physics_process(delta: float) -> void:
 		
 		compute_tick_avionics_ratio()
 		allow_RCS()
-		
+		missile_LOD()
 	
 
 	if (thrust_time <= 0 and !unlimited_fuel )or hit_target:
@@ -226,14 +231,14 @@ func _physics_process(delta: float) -> void:
 		compute_rotation_thrust()
 	_rcs_audio()
 	#print("missile has a velocity of ", linear_velocity.length())
-	
-	print(linear_velocity.length())
+
+	#print(linear_velocity.length())
 	collision_check.target_position = collision_check.to_local(linear_velocity) * delta * 0.5
-	
+	$"missile final_001".scale = max(1,_distance_to_cam()) * 0.01 * Vector3.ONE + Vector3.ONE
 	
 ##Computes how the missile should strafe relative to the target. Decides based off the chase mode.
 func compute_thrust() -> void:
-	if no_target:
+	if no_target or !can_maneuver:
 		missile_thrust(Vector3.FORWARD,true)
 		return
 	match chase_mode:
@@ -266,14 +271,14 @@ func compute_strafe_thrust() -> void:
 
 ##Computes the necessary rotation forces to face the desired direction.
 func compute_rotation_thrust() -> void:
-	if no_target:
+	if no_target or !can_maneuver:
 		return
 	var rotation_error: Vector3 = get_rotation_error()
 	var error_angle: float = rotation_error.length()
 	
 	
 	#if you're more or less facing the target, just snap to it.
-	if error_angle < 0.5:
+	if error_angle < 0.2:
 		var this_target_position: Vector3
 		
 		match current_chase_mode:
@@ -434,7 +439,9 @@ func missile_thrust(direction: Vector3 = Vector3.ZERO, reset := false, _hide := 
 			-1.0:
 				Thrust_down.how()
 				Thrust_down_aft.how()
+	if !_hide:
 		RCS_audio_queued = true
+	
 	if direction.z == -1.0:
 		Thrust_forward.how()
 
@@ -442,7 +449,7 @@ func missile_thrust(direction: Vector3 = Vector3.ZERO, reset := false, _hide := 
 		direction.z = 0.0
 		
 	#print("applying force ", direction)
-	apply_central_force(basis * (direction * mass * Vector3(linear_agility,linear_agility,forward_acceleration)) )
+	apply_central_force(basis * (direction * mass * Vector3(linear_agility,linear_agility,forward_acceleration) * current_avionic_tick_ratio) )
 
 ##Snaps the missile to the supplied quaternion.
 func missile_force_rotation(face: Quaternion, weight := 20.0) -> void:
@@ -481,13 +488,15 @@ func missile_rotation(direction: Vector3 = Vector3.ZERO, reset := true, visual_o
 				Thrust_right.how()
 				Thrust_left_aft.how()
 				Thrust_left.ide()
+	if !_hide:
 		RCS_audio_queued = true
 		
 	if visual_only:
 		return
 	#if !direction.z:
 		#direction.z = randf_range(-0.2, 0.2)
-	apply_torque(basis * direction * angular_agility * temporary_multiplier)
+	apply_torque(basis * direction * angular_agility * temporary_multiplier * current_avionic_tick_ratio
+	)
 	
 
 ##Logic for what happens when the missile collides.
@@ -499,11 +508,14 @@ func missile_impact(collider: Node3D) -> void:
 	if collider:
 		global_position = collider.global_position
 	#$explosion.pitch_scale = 10
-	$Camera3D.queue_free()
+	#$Camera3D.queue_free()
 	$explosion.play()
 	audio_main_thrust.queue_free()
 	audio_RCS.queue_free()
-	$impact.emitting = true
+	if performance_level < 3:
+		$impact.emitting = true
+	else:
+		$impact.queue_free()
 	for x:Missile_thruster in all_thrusters:
 		if x.constant_thrust:
 			x.shutdown()
@@ -525,8 +537,20 @@ func missile_impact(collider: Node3D) -> void:
 	await get_tree().create_timer(8.0).timeout
 	queue_free()
 	
+func missile_LOD() -> void:
+	if _distance_to_cam() > PERFORMANCE_POLL_DISTANCE:
+		$"missile final_001".hide()
+		$Text_008.hide()
+		$LOD.show()
+	else:
+		$"missile final_001".show()
+		$Text_008.show()
+		$LOD.hide()
+
 ##Determines if RCS audio should be played or not, depending on the static distance limit or instance count set.
 func _rcs_audio() -> void:
+	if hide_RCS:
+		return
 	if RCS_audio_queued and randi_range(0,2) == 0:
 		#don't show if your ID is too high when there are too many and or you're too far.
 		if (RCS_instance_count > 20 and RCS_this_id > 20 and _distance_to_cam() > 50) or _distance_to_cam() > PERFORMANCE_RCS_AUDIO_DISTANCE_MAX:
@@ -550,11 +574,11 @@ func _distance_to_cam() -> float:
 ##Calculates the performance level and tick ratio for the missile instance.
 func compute_tick_avionics_ratio() -> void:
 	var distance := _distance_to_target()
-	var new_performance_level : int = 0
+	var new_performance_level : int
 	
 	#this first pass is per-missile
 	if distance < PERFORMANCE_POLL_DISTANCE:
-		pass
+		new_performance_level = 0
 	elif distance < PERFORMANCE_POLL_DISTANCE_FAR:
 		new_performance_level = 1
 		print("far from target, increasing performance level")
@@ -571,22 +595,19 @@ func compute_tick_avionics_ratio() -> void:
 		elif instance_count < PERFORMANCE_POLL_INSTANCE_COUNT_FAR:
 			global_performance_level = 1
 			print("instance count high, increasing performance level.")
-		else:
+		elif instance_count < PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME:
+			print("instance count very high, increasing performance level even more.")
 			global_performance_level = 2
+		else:
+			global_performance_level = 3
 			print("instance count very high, increasing performance level")
-	elif global_performance_level == 2:
-		push_warning("Exceptionally high quantity of missiles, reducing performance substantially.")
+	
 		
 		
 	new_performance_level += global_performance_level
+	new_performance_level = clampi(new_performance_level, 0, avionic_tick_ratios.size() - 1)
 	print("new performance level is " , new_performance_level)
-	if new_performance_level > avionic_tick_ratios.size():
-		push_error("new performance level exceeds the currently set avionic tick ratios. Falling back to highest set tick ratio")
-		current_avionic_tick_ratio = avionic_tick_ratios[avionic_tick_ratios.size() - 1]
-	elif new_performance_level < 0: 
-		push_error("new performance level is negative")
-	else:
-		current_avionic_tick_ratio = avionic_tick_ratios[new_performance_level]
+	current_avionic_tick_ratio = avionic_tick_ratios[new_performance_level]
 	
 	
 	

@@ -2,6 +2,7 @@
 
 [ext_resource type="PackedScene" uid="uid://cen33ej277jql" path="res://geroteng_g_1.tscn" id="1_4m83u"]
 [ext_resource type="Script" uid="uid://b2s2db8thha7o" path="res://debugpoint.gd" id="2_2cq5c"]
+[ext_resource type="PackedScene" uid="uid://dgwvyqqag471x" path="res://ship model/hst.tscn" id="2_ntarn"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_4m83u"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -40,12 +41,8 @@ var blacklist : Array[Missile_Guided]
 
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if target:
-		if target is Missile_Guided and target.hit_target:
-			blacklist.append(target)
-			target = null
-			return
 		global_basis = global_transform.looking_at(target.position).basis
 	else:
 		for x in get_parent().get_children(0):
@@ -82,14 +79,19 @@ mesh = SubResource("BoxMesh_2cq5c")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="debugbody" unique_id=2093656768]
 shape = SubResource("SphereShape3D_2cq5c")
+disabled = true
 
-[node name="Camera3D" type="Camera3D" parent="debugbody" unique_id=1491982588]
-transform = Transform3D(0.8362957, -0.2613805, 0.48196447, -1.4141078e-08, 0.8790502, 0.47672927, -0.5482787, -0.39868665, 0.73514587, 2.674697, 0.7079735, 2.5338693)
+[node name="Collection 2" parent="." unique_id=225455826 instance=ExtResource("2_ntarn")]
+transform = Transform3D(-0.3612644, 0, 0.9324634, 0, 1, 0, -0.9324634, 0, -0.3612644, 107.86037, 0.99991226, 0)
+
+[node name="Geroteng G-1" parent="." unique_id=1758481796 node_paths=PackedStringArray("target") instance=ExtResource("1_4m83u")]
+transform = Transform3D(-0.36126444, 0, 0.93246347, 0, 1, 0, -0.93246347, 0, -0.36126444, 107.86037, -3.0374079, 0)
+launch_clear_time = 0.535
+angular_agility = 3.093
+target = NodePath("../debugbody")
+
+[node name="Camera3D2" type="Camera3D" parent="." unique_id=1491982588]
+transform = Transform3D(0.9998986, 0.006789362, -0.012518921, -0.0072032693, 0.99941885, -0.0333194, 0.012285427, 0.033406198, 0.9993664, 3.0019112, 15.940323, 13.861069)
 doppler_tracking = 1
 fov = 98.5
 script = SubResource("GDScript_2cq5c")
-
-[node name="Geroteng G-1" parent="." unique_id=1758481796 node_paths=PackedStringArray("target") instance=ExtResource("1_4m83u")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.527645, 0, 0)
-chase_mode = 0
-target = NodePath("../debugbody")
