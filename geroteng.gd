@@ -26,9 +26,9 @@ const PERFORMANCE_POLL_DISTANCE := 400
 ##Distance from target beyond which performance level is increased again. higher levels mean the missile calculates trajectories less often.
 const PERFORMANCE_POLL_DISTANCE_FAR := 800
 ##instance count beyond which performance level is increased. higher levels mean the missile calculates trajectories less often.
-const PERFORMANCE_POLL_INSTANCE_COUNT := 30
+const PERFORMANCE_POLL_INSTANCE_COUNT := 40
 ##instance count beyond which performance level is increased again. higher levels mean the missile calculates trajectories less often.
-const PERFORMANCE_POLL_INSTANCE_COUNT_FAR := 65
+const PERFORMANCE_POLL_INSTANCE_COUNT_FAR := 70
 ##instance count beyond which performance level is increased more. higher levels mean the missile calculates trajectories less often.
 const PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME := 100
 ##whether RCS is disabled for performance reasons.
@@ -137,6 +137,10 @@ var can_maneuver := false
 ##Disables all visual and auditive features concerning RCS for cosmetic reasons. this has the added benefit of slightly improved performance,
 ## albeit negligible in practice due to LOD and instance limiting systems in place. This does not disable strafing.
 @export var hide_RCS := false
+##Hides Vaportrail. Slight performnace boost where there's a fuck ton of missiles. Has an unintended consequence of making it hard to see.
+@export var hide_trail := false
+##Hides particles. Slight performance boost, but it's already moderated.
+@export var hide_particles := false
 
 @export_category("Audio Parameters")
 ##Volume variation in decibels of the main thrusters.
@@ -181,7 +185,11 @@ var performance_level := 0
 var current_avionic_tick_ratio := 1
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
-
+	if hide_particles:
+		$GPUParticles3D.amount_ratio = 0
+	if hide_trail:
+		$VaporTrail.num_points = 1
+		$VaporTrail.update_interval = 100
 	instance_count += 1
 	this_id = instance_count
 	if !hide_RCS:
@@ -591,7 +599,7 @@ func missile_LOD() -> void:
 	if instance_count > PERFORMANCE_POLL_INSTANCE_COUNT and this_id > PERFORMANCE_POLL_INSTANCE_COUNT:
 		$GPUParticles3D.emitting = false
 		
-	if instance_count > PERFORMANCE_POLL_INSTANCE_COUNT and this_id > PERFORMANCE_POLL_INSTANCE_COUNT:
+	if instance_count > PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME and this_id > PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME:
 		$VaporTrail.hide()
 	else:
 		$VaporTrail.show()
@@ -632,10 +640,10 @@ func compute_tick_avionics_ratio() -> void:
 		new_performance_level = 0
 	elif distance < PERFORMANCE_POLL_DISTANCE_FAR:
 		new_performance_level = 1
-		print("far from target, increasing performance level")
+		#print("far from target, increasing performance level")
 	else:
 		new_performance_level = 2
-		print("very far from target, increasing performance level")
+		#print("very far from target, increasing performance level")
 	
 	#this means no one has changed it yet.
 	if global_performance_level == -1:
@@ -645,19 +653,19 @@ func compute_tick_avionics_ratio() -> void:
 			
 		elif instance_count < PERFORMANCE_POLL_INSTANCE_COUNT_FAR:
 			global_performance_level = 1
-			print("instance count high, increasing performance level.")
+			#print("instance count high, increasing performance level.")
 		elif instance_count < PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME:
-			print("instance count very high, increasing performance level even more.")
+			#print("instance count very high, increasing performance level even more.")
 			global_performance_level = 2
 		else:
 			global_performance_level = 3
-			print("instance count very high, increasing performance level")
+			#print("instance count very high, increasing performance level")
 	
 		
 		
 	new_performance_level += global_performance_level
 	new_performance_level = clampi(new_performance_level, 0, avionic_tick_ratios.size() - 1)
-	print("new performance level is " , new_performance_level)
+	#print("new performance level is " , new_performance_level)
 	current_avionic_tick_ratio = avionic_tick_ratios[new_performance_level]
 	
 	

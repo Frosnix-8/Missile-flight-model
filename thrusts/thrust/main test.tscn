@@ -70,6 +70,9 @@ transform = Transform3D(-0.3612644, 0, 0.9324634, 0, 1, 0, -0.9324634, 0, -0.361
 transform = Transform3D(-0.36126444, 0, 0.93246347, 0, 1, 0, -0.93246347, 0, -0.36126444, 107.86037, -11.011318, 0)
 launch_clear_time = 0.535
 angular_agility = 3.093
+hide_RCS = true
+hide_trail = true
+hide_particles = true
 target = NodePath("../Collection 3")
 
 [node name="Camera3D2" type="Camera3D" parent="." unique_id=1491982588]
