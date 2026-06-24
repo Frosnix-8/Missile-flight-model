@@ -90,6 +90,6 @@ fov = 98.5
 script = SubResource("GDScript_2cq5c")
 
 [node name="Geroteng G-1" parent="." unique_id=1758481796 node_paths=PackedStringArray("target") instance=ExtResource("1_4m83u")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -195.5314, 56.318985, 0)
-forward_acceleration = 100.0
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55.527645, 0, 0)
+chase_mode = 0
 target = NodePath("../debugbody")

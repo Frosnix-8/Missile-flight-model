@@ -23,6 +23,11 @@ buses/default_bus_layout="uid://cgk62v8aedr5b"
 
 window/stretch/mode="canvas_items"
 
+[editor]
+
+version_control/plugin_name="GitPlugin"
+version_control/autoload_on_startup=true
+
 [physics]
 
 3d/run_on_separate_thread=true

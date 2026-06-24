@@ -297,6 +297,7 @@ attenuation_filter_db = -12.1
 [node name="Camera3D" type="Camera3D" parent="." unique_id=120107327]
 transform = Transform3D(0.9986739, 0, -0.051481847, 0, 1, 0, 0.051481847, 0, 0.9986739, 0, 0.6418032, 2.2880528)
 doppler_tracking = 1
+current = true
 fov = 98.5
 script = SubResource("GDScript_mvhaw")
 

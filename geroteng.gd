@@ -192,7 +192,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	
+	print(current_avionic_tick_ratio)
 	tick_avionics += 1
 	global_performance_level = -1
 	RCS_audio_queued = false
@@ -273,7 +273,7 @@ func compute_rotation_thrust() -> void:
 	
 	
 	#if you're more or less facing the target, just snap to it.
-	if error_angle < 100.0:
+	if error_angle < 0.5:
 		var this_target_position: Vector3
 		
 		match current_chase_mode:
@@ -283,10 +283,10 @@ func compute_rotation_thrust() -> void:
 				this_target_position = PN_aim_point
 				
 		var look_dir: Vector3 = (this_target_position - global_position).normalized()
-		var up: Vector3 = global_basis.y
+		var up: Vector3 = basis.y
 		
 		if abs(look_dir.dot(up)) > 0.99:
-			up = global_basis.x
+			up = basis.x
 			
 		var to_target_Quat: Quaternion = Basis.looking_at(look_dir, up).get_rotation_quaternion()
 		missile_force_rotation(to_target_Quat)
@@ -446,8 +446,8 @@ func missile_thrust(direction: Vector3 = Vector3.ZERO, reset := false, _hide := 
 
 ##Snaps the missile to the supplied quaternion.
 func missile_force_rotation(face: Quaternion, weight := 20.0) -> void:
-	var current_rotation :Quaternion= global_basis.get_rotation_quaternion().normalized()
-	current_rotation = current_rotation.slerp(face, min(weight * get_physics_process_delta_time(), 1.0))
+	var current_rotation :Quaternion= basis.get_rotation_quaternion().normalized()
+	current_rotation = current_rotation.slerp(face, 0.5 * get_physics_process_delta_time() * 60)
 	basis = Basis(current_rotation)
 
 ##Applies torque based off the supplied rotation direction. Additionally, determines which RCS thrusters should be active.
@@ -557,27 +557,34 @@ func compute_tick_avionics_ratio() -> void:
 		pass
 	elif distance < PERFORMANCE_POLL_DISTANCE_FAR:
 		new_performance_level = 1
+		print("far from target, increasing performance level")
 	else:
 		new_performance_level = 2
+		print("very far from target, increasing performance level")
 	
 	#this means no one has changed it yet.
 	if global_performance_level == -1:
 		#this second pass is global, every missile will have the same outcome.
 		if instance_count < PERFORMANCE_POLL_INSTANCE_COUNT:
-			pass
+			global_performance_level = 0
+			
 		elif instance_count < PERFORMANCE_POLL_INSTANCE_COUNT_FAR:
 			global_performance_level = 1
+			print("instance count high, increasing performance level.")
 		else:
 			global_performance_level = 2
+			print("instance count very high, increasing performance level")
 	elif global_performance_level == 2:
 		push_warning("Exceptionally high quantity of missiles, reducing performance substantially.")
 		
 		
 	new_performance_level += global_performance_level
-	
+	print("new performance level is " , new_performance_level)
 	if new_performance_level > avionic_tick_ratios.size():
 		push_error("new performance level exceeds the currently set avionic tick ratios. Falling back to highest set tick ratio")
 		current_avionic_tick_ratio = avionic_tick_ratios[avionic_tick_ratios.size() - 1]
+	elif new_performance_level < 0: 
+		push_error("new performance level is negative")
 	else:
 		current_avionic_tick_ratio = avionic_tick_ratios[new_performance_level]
 	
