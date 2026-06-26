@@ -1,6 +1,5 @@
 [gd_scene format=3 uid="uid://bewifmkf8dkw6"]
 
-[ext_resource type="PackedScene" uid="uid://cen33ej277jql" path="res://geroteng_g_1.tscn" id="1_4m83u"]
 [ext_resource type="PackedScene" uid="uid://dgwvyqqag471x" path="res://ship model/hst.tscn" id="2_ntarn"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_e2bt7"]
@@ -30,7 +29,7 @@ var blacklist : Array[Missile_Guided]
 
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	if target:
 		global_basis = global_transform.looking_at(target.position).basis
 	else:
@@ -59,19 +58,10 @@ shape = SubResource("BoxShape3D_4m83u")
 disabled = true
 
 [node name="Collection 3" parent="." unique_id=225455826 instance=ExtResource("2_ntarn")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 30.877277, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 46.756535, 0)
 
 [node name="Collection 2" parent="." unique_id=1773675596 instance=ExtResource("2_ntarn")]
 transform = Transform3D(-0.3612644, 0, 0.9324634, 0, 1, 0, -0.9324634, 0, -0.3612644, 107.86037, 0.99991226, 0)
-
-[node name="Geroteng G-1" parent="." unique_id=1758481796 node_paths=PackedStringArray("target") instance=ExtResource("1_4m83u")]
-transform = Transform3D(-0.36126444, 0, 0.93246347, 0, 1, 0, -0.93246347, 0, -0.36126444, 107.86037, -6.5584803, 0)
-launch_clear_time = 0.535
-angular_agility = 3.093
-main_thrust_volume_db = 2.2
-main_thrust_pitch_scale = 2.555
-thrust_pitch_scale = 1.33
-target = NodePath("../Collection 3")
 
 [node name="Camera3D2" type="Camera3D" parent="." unique_id=1491982588]
 transform = Transform3D(0.9998986, 0.006789362, -0.012518921, -0.0072032693, 0.99941885, -0.0333194, 0.012285427, 0.033406198, 0.9993664, 3.0019112, 15.940323, 13.861069)

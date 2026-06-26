@@ -4,6 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://crso0f6fyucp6" path="res://meshes/GerotengG1(1)_GerotengG1 Albedo.webp" id="2_m3eeq"]
 [ext_resource type="Texture2D" uid="uid://sq4qk3jhgn8v" path="res://meshes/GerotengG1(1)_GerotengG1 ORM.webp" id="3_u0wu7"]
 [ext_resource type="PackedScene" uid="uid://c515r8h7q7br8" path="res://thrusts/thrust/thrust.tscn" id="4_iwfhy"]
+[ext_resource type="Script" uid="uid://cncxudro60mli" path="res://reparent_wait_free.gd" id="4_p4j0i"]
 [ext_resource type="AudioStream" uid="uid://deyya3av0nrrm" path="res://thrusts/thrust/Audio/RCS audio/rand_RCS_short.tres" id="5_iwfhy"]
 [ext_resource type="AudioStream" uid="uid://dsoitvy6jdcit" path="res://thrusts/thrust/Audio/boom/rand_missile_boom.tres" id="5_m3eeq"]
 [ext_resource type="AudioStream" uid="uid://d3e54u0oih3t2" path="res://thrusts/thrust/Audio/thruster/rand_Thrust.tres" id="6_u0wu7"]
@@ -122,19 +123,28 @@ blend_shape_mode = 0
 [sub_resource type="BoxShape3D" id="BoxShape3D_7qqlg"]
 size = Vector3(0.32, 1.9366602, 0.32)
 
-[sub_resource type="SphereShape3D" id="SphereShape3D_m3eeq"]
-margin = 0.585
-radius = 0.368
-
 [sub_resource type="GDScript" id="GDScript_m3eeq"]
 resource_name = "impactscript"
-script/source = "extends ShapeCast3D
-
-signal body_hit(collider)
+script/source = "extends RayCast3D
+@export_category(\"DEBUG\")
+@export var disabled := false
+signal body_hit(collider: Node3D, location: Vector3)
 
 func _physics_process(_delta: float) -> void:
-	if get_collision_count() > 0:
-		body_hit.emit(get_collider(0))
+	if disabled:
+		set_physics_process(false)
+	check_hit()
+	
+		
+func check_hit(mult: float = 1.0) -> bool:
+	if mult != 1.0:
+		target_position *= mult
+		force_raycast_update()
+	var hit := get_collider() 
+	if hit:
+		body_hit.emit(get_collider(), get_collision_point())
+		return true
+	return false
 "
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_m3eeq"]
@@ -152,18 +162,19 @@ _data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.10638299, 1), 3.7720697, 0.0, 
 point_count = 4
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_m3eeq"]
-lifetime_randomness = 0.55
+lifetime_randomness = 0.44
 particle_flag_align_y = true
 direction = Vector3(0, 0, -1)
 spread = 6.185
-initial_velocity_min = 32.26
-initial_velocity_max = 90.049995
+initial_velocity_min = 45.7
+initial_velocity_max = 103.49
 gravity = Vector3(0, 0, 0)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7qqlg"]
 emission_enabled = true
-emission = Color(0.9999998, 0.6439104, 0.10479637, 1)
+emission = Color(0.9539996, 0.39950222, 0, 1)
 emission_energy_multiplier = 7.07
+disable_receive_shadows = true
 billboard_keep_scale = true
 
 [sub_resource type="SphereMesh" id="SphereMesh_m3eeq"]
@@ -171,8 +182,8 @@ material = SubResource("StandardMaterial3D_7qqlg")
 uv2_padding = 4.1
 radius = 0.236
 height = 0.728
-radial_segments = 16
-rings = 16
+radial_segments = 8
+rings = 8
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_or73b"]
 lifetime_randomness = 0.51
@@ -188,6 +199,7 @@ damping_max = 14.247001
 emission_enabled = true
 emission = Color(0.9770501, 0.817334, 0.47222245, 1)
 emission_energy_multiplier = 3.85
+disable_receive_shadows = true
 
 [sub_resource type="SphereMesh" id="SphereMesh_ii28r"]
 material = SubResource("StandardMaterial3D_mvhaw")
@@ -195,6 +207,55 @@ radius = 0.084
 height = 0.175
 radial_segments = 4
 rings = 4
+
+[sub_resource type="GDScript" id="GDScript_e2bt7"]
+resource_name = "MissileTrailBoom"
+script/source = "extends GPUParticles3D
+
+@export var reparent_to_root : bool = true
+##When reparented, this node is no longer handled by the previous script. This built in timer removes it automatically.
+@export var time := 2.0
+func _ready() -> void:
+	set_process(false)
+
+func _process(delta: float) -> void:
+	time -= delta
+	if time < lifetime:
+		emitting = false
+	if time < 0:
+		queue_free()
+
+func on_begin_countdown(new_parent : Node3D) -> void:
+	call_deferred(\"reparent\",get_tree().current_scene if reparent_to_root or !new_parent else new_parent, true)
+	set_process(true)
+"
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_p4j0i"]
+lifetime_randomness = 1.0
+particle_flag_align_y = true
+inherit_velocity_ratio = 0.459
+direction = Vector3(0, 1, 0)
+spread = 180.0
+flatness = 1.0
+initial_velocity_min = 166.81
+initial_velocity_max = 177.56
+gravity = Vector3(0, 0, 0)
+damping_max = 1.0400001
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_p4j0i"]
+emission_enabled = true
+emission = Color(0.9539996, 0.39950222, 0, 1)
+emission_energy_multiplier = 4.0
+disable_receive_shadows = true
+billboard_keep_scale = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_p4j0i"]
+material = SubResource("StandardMaterial3D_p4j0i")
+uv2_padding = 4.1
+radius = 0.3
+height = 1.394
+radial_segments = 8
+rings = 8
 
 [node name="Geroteng G-1" type="RigidBody3D" unique_id=1758481796]
 mass = 85.0
@@ -211,24 +272,29 @@ max_straight_line_speed = 500.0
 linear_agility = 200.0
 forward_acceleration = 200.0
 angular_agility = 2.718
+proximity_fuse_radius = 10.0
 main_thrust_pitch_scale = 2.125
 thrust_pitch_scale = 1.025
-explosion_volume_db = -1.8599999999999999
+explosion_volume_db = -1.86
 
 [node name="LOD" type="MeshInstance3D" parent="." unique_id=1572315421]
 transform = Transform3D(1, 0, 0, 0, -4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 0, 0)
 visible = false
+cast_shadow = 0
 mesh = SubResource("CylinderMesh_mvhaw")
 
 [node name="missile final_001" type="MeshInstance3D" parent="." unique_id=345212515]
 transform = Transform3D(1.69, 0, 0, 0, 1.69, 0, 0, 0, 1.69, 0, 0, 0)
+cast_shadow = 0
 gi_mode = 2
+visibility_range_end = 1000.0
 mesh = SubResource("ArrayMesh_5gp5x")
 
 [node name="Text_008" type="MeshInstance3D" parent="." unique_id=90014084]
 transform = Transform3D(1.69, 0, 0, 0, 1.69, 0, 0, 0, 1.69, 0, 0, 0)
 cast_shadow = 0
 gi_mode = 2
+visibility_range_end = 1000.0
 mesh = SubResource("ArrayMesh_0u4vw")
 
 [node name="missile collision" type="CollisionShape3D" parent="." unique_id=1905212927]
@@ -236,12 +302,9 @@ transform = Transform3D(1, 0, 0, 0, -4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 2
 shape = SubResource("BoxShape3D_7qqlg")
 disabled = true
 
-[node name="impactcheck" type="ShapeCast3D" parent="." unique_id=1129891532]
+[node name="impactcheck" type="RayCast3D" parent="." unique_id=328369168]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.020413637)
-shape = SubResource("SphereShape3D_m3eeq")
 target_position = Vector3(0, 0, -1.95)
-margin = 3.51
-max_results = 1
 debug_shape_custom_color = Color(1, 0.4657101, 0.5555695, 1)
 script = SubResource("GDScript_m3eeq")
 
@@ -253,6 +316,9 @@ visual/size = 0.09
 visual/size_curve = SubResource("Curve_m3eeq")
 visual/minimum_onscreen_size = 1.5
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.4896938)
+visible = false
+script = ExtResource("4_p4j0i")
+time = 6.98
 
 [node name="ThrustEffect" parent="." unique_id=1201444138 instance=ExtResource("4_iwfhy")]
 transform = Transform3D(-6.504255e-08, 0, 1.022, 0, 1.022, 0, -1.488, 0, -4.4673037e-08, 0, 0, 2.5961144)
@@ -284,14 +350,20 @@ transform = Transform3D(0.834, 1.4752594e-07, 6.4485635e-15, 0, -4.9175313e-08, 
 
 [node name="impact" type="GPUParticles3D" parent="." unique_id=1482855339]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.0040925)
+visible = false
+cast_shadow = 0
 gi_mode = 2
 emitting = false
 amount = 102
-lifetime = 3.5599999999999996
+lifetime = 2.71
 one_shot = true
 explosiveness = 1.0
+fixed_fps = 1
+visibility_aabb = AABB(-8, -8, -140, 16, 16, 150)
 process_material = SubResource("ParticleProcessMaterial_m3eeq")
 draw_pass_1 = SubResource("SphereMesh_m3eeq")
+script = ExtResource("4_p4j0i")
+time = 5.005
 
 [node name="RCS" type="AudioStreamPlayer3D" parent="." unique_id=1796765180]
 stream = ExtResource("5_iwfhy")
@@ -320,19 +392,40 @@ pitch_scale = 1.25
 attenuation_filter_cutoff_hz = 3579.0
 attenuation_filter_db = -12.1
 
-[node name="GPUParticles3D" type="GPUParticles3D" parent="." unique_id=384781553]
+[node name="TrailBoom" type="GPUParticles3D" parent="." unique_id=384781553]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.3663995)
-amount = 770
+visible = false
+cast_shadow = 0
+visibility_range_end = 600.0
+amount = 400
+preprocess = 0.2
 fixed_fps = 60
 visibility_aabb = AABB(-50, -50, -50, 100, 100, 100)
 transform_align = 1
 transform_align_channel_filter = 1
 process_material = SubResource("ParticleProcessMaterial_or73b")
 draw_pass_1 = SubResource("SphereMesh_ii28r")
+script = SubResource("GDScript_e2bt7")
+reparent_to_root = false
+time = 4.0
 
-[node name="Camera3D" type="Camera3D" parent="." unique_id=888748850]
-transform = Transform3D(1, 0, 0, 0, 0.9580548, 0.28658512, 0, -0.28658512, 0.9580548, -2.4244652, 1.0763428, 2.8820791)
-doppler_tracking = 1
+[node name="Proximityboom" type="GPUParticles3D" parent="." unique_id=1158988606]
+transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 0, 0, 0)
+visible = false
+cast_shadow = 0
+visibility_range_end = 1000.0
+emitting = false
+amount = 300
+one_shot = true
+explosiveness = 0.94
+visibility_aabb = AABB(-50, -50, -50, 100, 100, 100)
+transform_align = 2
+process_material = SubResource("ParticleProcessMaterial_p4j0i")
+draw_pass_1 = SubResource("SphereMesh_p4j0i")
+script = ExtResource("4_p4j0i")
 
+[connection signal="begin_countdown" from="." to="VaporTrail" method="on_begin_countdown"]
+[connection signal="begin_countdown" from="." to="impact" method="on_begin_countdown"]
+[connection signal="begin_countdown" from="." to="TrailBoom" method="on_begin_countdown"]
 [connection signal="body_entered" from="." to="." method="_on_body_entered"]
 [connection signal="body_hit" from="impactcheck" to="." method="_on_impactcheck_body_hit"]

@@ -14,9 +14,11 @@ orientation = 1
 
 [node name="Missile-Thrust" type="MeshInstance3D" unique_id=745290900]
 cast_shadow = 0
+visibility_range_end = 500.0
 mesh = SubResource("QuadMesh_og8ry")
 script = ExtResource("1_fqbko")
 
 [node name="MeshInstance3D2" type="MeshInstance3D" parent="." unique_id=1395075210]
 cast_shadow = 0
+visibility_range_end = 500.0
 mesh = SubResource("QuadMesh_522yw")

@@ -5,6 +5,8 @@ extends RigidBody3D
 ##on performance. Damage calculations are not done yet. For more rounded trajectories,
 ##top speed, acceleration, rotation speeds should be close to each other.
 class_name Missile_Guided
+##Reparents all long time nodes. Leave null to not move anything.
+signal begin_countdown(new_parent : Node3D)
 
 ##amount of missile instances in the current tree.
 static var instance_count := 0
@@ -38,6 +40,7 @@ const PERFORMANCE_POLL_INSTANCE_COUNT := 40
 const PERFORMANCE_POLL_INSTANCE_COUNT_FAR := 70
 ##instance count beyond which performance level is increased more.
 const PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME := 100
+const PERFORMANCE_MESH_INSTANCE_COUNT := 200
 ##whether RCS is disabled for performance reasons.
 var performance_RCS_disabled := false
 #endregion
@@ -55,7 +58,7 @@ var this_id := 0
 ##Disables all missile strafing. Without linear velocity damping, makes the missile uncontrollable.
 @export var disable_strafe := false
 
-@export_category("Chase Modes")
+@export_category("Missile Homing")
 ##Chase modes.
 enum chasemodes {
 	PURSUIT,              ##Goes after the target's current position irrespective of its velocity. Easier to evade.
@@ -66,7 +69,8 @@ enum chasemodes {
 ##Current pursue mode. PN doesn't always use PN tracking (e.g. when the missile isn't facing the target).
 var current_chase_mode : chasemodes = chase_mode
 
-@export_category("Track Modes")
+@export_category("Missile Tracking")
+##How the missile tracks targets. Doesn't do anything on its own.
 enum trackmodes {
 	PASSIVE_INFRARED,       ##Chases based on the heat signature of the target.
 	PASSIVE_CROSSFIRE,      ##Chases using built-in pattern recognition.
@@ -86,7 +90,7 @@ enum trackmodes {
 @onready var Thrust_right_aft : Missile_thruster = $ThrustEffect9
 @onready var Thrust_up_aft    : Missile_thruster = $ThrustEffect4
 @onready var Thrust_down_aft  : Missile_thruster = $ThrustEffect3
-
+@onready var textmesh : MeshInstance3D = $Text_008
 enum thrusters {
 	FORWARD,
 	DOWN,
@@ -103,7 +107,7 @@ var active_thrusters    : Array[bool] = [false,false,false,false,false,false,fal
 var thruster_to_activate: Array[bool] = [false,false,false,false,false,false,false,false,false]
 
 ##ShapeCast that detects objects. Faces missile attitude, length = distance traveled per frame.
-@onready var collision_check  : ShapeCast3D        = $impactcheck
+@onready var collision_check  : RayCast3D           = $impactcheck
 ##Audio for main thrust.
 @onready var audio_main_thrust: AudioStreamPlayer3D = $MAINTHRUST
 ##Audio for RCS effects. Has polyphony.
@@ -111,14 +115,16 @@ var thruster_to_activate: Array[bool] = [false,false,false,false,false,false,fal
 ##Whether the missile is expecting to play RCS audio this frame.
 var RCS_audio_queued := false
 
-@export_category("Missile specifications")
+@export_category("Missile Specifications")
 ##Speed when launched from ship. An impulse of n * mass newtons is applied in -Z (forward) on spawn.
 @export var launch_speed       : float = 10.0
 ##Time before the missile starts maneuvering.
 @export var launch_clear_time  : float = 0.5
 ##Time during which the missile cannot collide with its owner.
 @export var arm_time           : float = 2.0
+##If the missile is allowed to rotate and strafe
 var can_maneuver := false
+##If the missile is allowed to detonate.
 var armed        := false
 ##Max forward speed. If the missile exceeds this along its forward axis, it slows down.
 @export var max_straight_line_speed : float = 1000
@@ -132,10 +138,69 @@ var armed        := false
 @export var thrust_time        : float = 10.0
 ##When the fuel timer runs out, should the missile explode?
 @export var explode_on_fuel_loss := false
+##Theoretical health of the missile. If below, forces disable / detonation.
+@export var health := 30.0
+
+
+
+@export_category("Missile Damage")
+##Base damage of the missile.
+@export var base_damage := 60
+##damage after computing falloff and other stuff.
+var final_damage : int
+##Armor penetration of the missile. I don't know how to implement something with this yet, but it's here just in case.
+@export var armor_piercing := 60
+##AP after computing falloff.
+var final_armor_piercing : int
+##Types of warheads.
+enum warheadtypes {
+	DIRECT_WARHEAD, ##Missile only deals damage through a tough warhead. No proximity fuse. (Only direct hits)
+	PROXIMITY_WARHEAD, ##Missile uses strong explosives with shrapnel to damage ships with proximity detonation (Favor Proximity, maybe less pen)
+	HYBRID_WARHEAD, ##Missile uses a hybrid of small explosives with a mostly tough shell. This penetrates less but can explode via proximity and explode on direct hits (even hull breach!!)
+	TANDEM_WARHEAD ##Missile with a tandem-shaped-charge, bypassing reactive armor. The shaped charge could allow exceptional penetration, but it's probably not as visceral as a big boom.
+	##Also, proximity fuses are off the table.
+}
+
+##The type of warhead on the missile. Purely for descriptor purposes.
+@export var warhead_type : warheadtypes = warheadtypes.HYBRID_WARHEAD
+##How much of the missile's damage is kinetic. the other part is considered explosive.
+@export var damage_type_kinetic_chemical_percentage : float = 0.5
+enum proximity {
+	AUTO,
+	FORCE_ENABLE, 
+	FORCE_DISABLE
+}
+##How to set Proximity fuse. Disabling it increases performance ever so slightly.
+@export var proximity_fuse_mode : proximity = proximity.AUTO
+##Whether the Proximity fuze should only detonate if the target is close enough.
+@export var proximity_fuse_only_target : bool = true
+##Proximity enabled.
+var proximity_enabled : bool = false
+##Proximity fuse distance
+@export var proximity_fuse_radius : float = 5.0
+##Damage multiplier for when the missile strikes a direct hit.
+@export var damage_hit_multiplier_direct := 1.0
+##Damage multiplier for when the missile strikes via proximity fuse.
+@export var damage_hit_multiplier_proximity := 1.0
+##Penetration multiplier for direct hits.
+@export var armor_penetration_multiplier_direct := 1.0
+##Penetration multiplier for proximity hits.
+@export var armor_penetration_multiplier_proximity := 1.0
+##How much damage should falloff with speed; 0 is immobile, 1 is max speed. If left empty, no falloff is calculated.
+@export var damage_falloff_speed : Curve
+##How much AP falls off with speed; 0 is immobile, 1 is max speed. If left empty, no falloff is calculated.
+@export var armor_penetration_falloff_speed : Curve
+##How much damage should falloff with distance from the launcher, set range to whatever distance needed. If left empty, no falloff is calculated.
+@export var damage_falloff_distance : Curve
+
+var fuse_build := false
+var fuse_shape :CylinderShape3D
+var fuse_sphere :PhysicsShapeQueryParameters3D
 
 @export_category("Visual Parameters")
 ##Disables all visual and auditive RCS features. Does not disable strafing.
 @export var hide_RCS    := false
+var RCS_deleted := false
 ##Hides vapor trail. Slight performance boost in dense scenes.
 @export var hide_trail  := false
 ##Hides particles. Slight performance boost.
@@ -151,7 +216,7 @@ var armed        := false
 ##Pitch scale of RCS thrusters.
 @export var thrust_pitch_scale: float = 1.0
 ##Volume variation of explosions.
-@export var explosion_volume_db: float = -19
+@export var explosion_volume_db: float = 0.0
 ##Volume variation for ALL sounds on this node.
 @export var master_effect_volume_db: float = 0.0
 
@@ -189,24 +254,23 @@ var _cached_inv_basis : Basis
 var _cached_dist_to_target : float = 0.0
 ##Cached aim point (PURSUIT or PN depending on current_chase_mode).
 var _aim_point : Vector3 = Vector3.ZERO
-
+##Cached distance from the camera, so you odn't have to calculate 10 times a frame.
+static var cached_camera_distance : float = 0.0
 
 func _ready() -> void:
 	if hide_particles:
-		$GPUParticles3D.amount_ratio = 0
+		$TrailBoom.amount_ratio = 0
 	if hide_trail:
 		$VaporTrail.num_points = 1
 		$VaporTrail.update_interval = 100
 	max_straight_line_speed = max_straight_line_speed * max_straight_line_speed
 	instance_count += 1
 	this_id = instance_count
+	if this_id > 10:
+		textmesh.queue_free()
 
-	var show_rcs_later := false
-	if !hide_RCS:
-		RCS_instance_count += 1
-		RCS_this_id = RCS_instance_count
-		show_rcs_later = true
-		hide_RCS = true
+	
+	
 
 	all_thrusters.assign([
 		Thrust_forward,
@@ -221,7 +285,19 @@ func _ready() -> void:
 			push_error(self, " failed to start thruster animation on ", x)
 		if !show_all_thrusters:
 			x.ide()
-
+		if hide_RCS and !x.constant_thrust:
+			x.queue_free()
+			RCS_deleted = true
+			
+	if RCS_deleted:
+		print("deleted RCS")
+	var show_rcs_later := false
+	if !hide_RCS:
+		RCS_instance_count += 1
+		RCS_this_id = RCS_instance_count
+		show_rcs_later = true
+		hide_RCS = true
+		
 	audio_RCS.volume_db       = thrust_volume_db
 	audio_RCS.pitch_scale    *= thrust_pitch_scale
 	audio_main_thrust.pitch_scale *= main_thrust_pitch_scale
@@ -233,7 +309,9 @@ func _ready() -> void:
 	forward_acceleration *= randf_range(0.9, 1.1)
 	launch_clear_time    *= randf_range(0.6, 1.0)
 	launch_speed         *= randf_range(0.9, 1.1)
-
+	
+	
+	
 	await get_tree().physics_frame
 	apply_central_impulse(basis * Vector3.FORWARD * launch_speed * mass)
 	await get_tree().create_timer(launch_clear_time).timeout
@@ -241,20 +319,53 @@ func _ready() -> void:
 	hide_RCS = !show_rcs_later
 	await get_tree().create_timer(max(0.1, arm_time - launch_clear_time)).timeout
 	armed = true
+	_ready_proximity_fuse()
+
+func _ready_proximity_fuse() -> void:
+	match proximity_fuse_mode:
+		proximity.FORCE_ENABLE: 
+			proximity_enabled = true
+			proximity_fuse_mode = proximity.FORCE_ENABLE
+		proximity.FORCE_DISABLE: 
+			proximity_enabled = false
+			proximity_fuse_mode = proximity.FORCE_DISABLE
+			return
+		_:
+			match warhead_type:
+				warheadtypes.DIRECT_WARHEAD:
+					proximity_enabled = false
+					proximity_fuse_mode = proximity.FORCE_DISABLE
+					return
+				_:
+					proximity_enabled = true
+					proximity_fuse_mode = proximity.FORCE_ENABLE
+	if !proximity_enabled:
+		return
+	fuse_shape = CylinderShape3D.new()
+	fuse_shape.radius = proximity_fuse_radius
+	fuse_shape.height = 7.0
+	
+	fuse_sphere = PhysicsShapeQueryParameters3D.new()
+	fuse_sphere.shape = fuse_shape
+	fuse_sphere.transform = global_transform.rotated_local(Vector3.RIGHT, PI / 2)
+	fuse_sphere.exclude = [self]
+
+
 
 
 func _physics_process(delta: float) -> void:
 	tick_avionics += 1
 	RCS_audio_queued = false
 	thrust_time -= delta
-
+	
 	if tick_avionics % 15 == 0:
 		global_performance_level = -1
 		compute_tick_avionics_ratio()
 		allow_RCS()
 		missile_LOD()
-		print(performance_level)
-
+		#print(performance_level)
+	if tick_avionics % 6 == 0:
+		compute_damage_and_penetration()
 	if thrust_time <= 0 and !unlimited_fuel:
 		_on_fuel_depleted()
 		return
@@ -264,11 +375,16 @@ func _physics_process(delta: float) -> void:
 		compute_target_position(delta)
 		compute_thrust()
 		compute_rotation_thrust()
+		
+	if (tick_avionics + 1) % (min(current_avionic_tick_ratio + 1, 3)) == 0:
+		compute_proximity_fuse()
+		#print("computing fuse")
+	
 
 	missile_thruster_set_visibility()
 	_rcs_audio()
 
-	collision_check.target_position = collision_check.to_local(linear_velocity) * delta * 0.5
+	collision_check.target_position = collision_check.to_local(linear_velocity) * delta 
 	$"missile final_001".scale = max(1.0, _distance_to_cam()) * 0.01 * Vector3.ONE + Vector3.ONE
 
 
@@ -277,7 +393,7 @@ func _on_fuel_depleted() -> void:
 	for x : Missile_thruster in all_thrusters:
 		x.queue_free()
 	if explode_on_fuel_loss:
-		missile_impact(null)
+		missile_impact([self], global_position)
 	else:
 		set_physics_process(false)
 		await get_tree().create_timer(10.0).timeout
@@ -392,6 +508,57 @@ func compute_pn_intercept_point() -> void:
 	var time_to_intercept: float = range_to_target / closing_speed
 	PN_aim_point = target_position + target_velocity * time_to_intercept
 
+##Calculates, based on what's enabled and not, the final damage and piercing values.
+func compute_damage_and_penetration() -> void:
+	var sub_final_damage : float = base_damage
+	var velocity : float
+	if damage_falloff_speed:
+		velocity = linear_velocity.length()
+		sub_final_damage *= damage_falloff_speed.sample(velocity/ max_straight_line_speed )
+	if damage_falloff_distance:
+		sub_final_damage *= damage_falloff_distance.sample(global_position.distance_to(owner_ship.global_position))
+	final_damage = round(sub_final_damage)
+	
+	var sub_final_pen : float = armor_piercing
+	if armor_penetration_falloff_speed:
+		if !velocity:
+			velocity = linear_velocity.length()
+		sub_final_pen *= armor_penetration_falloff_speed.sample(velocity / max_straight_line_speed)
+		
+	final_armor_piercing = round(sub_final_pen)
+
+
+
+##Checks if anything is in the proximity fuze's radius. Acts accordingly
+func compute_proximity_fuse() -> void:
+	if !proximity_enabled or !armed:
+		return
+	fuse_sphere.transform = global_transform
+	var hits = get_world_3d().direct_space_state.intersect_shape(fuse_sphere, 10)
+	if hits.size() == 0:
+		return
+	print(hits)
+	if proximity_fuse_only_target:
+		for hit in hits:
+			if target == hit.collider or target == hit.collider.get_parent().get_parent():
+				
+				if collision_check.check_hit(1.5):
+					return
+				missile_impact([target], global_position, true)
+				
+		return
+	
+	#var colliders : Array[Node3D]
+	#for x in hits:
+		#colliders.append(x.collider)
+	#missile_impact(colliders, global_position, true)
+	
+func is_in_front_of_missile(node: Node3D) -> bool:
+	var to_target = (node.global_position - global_position).normalized()
+	var forward = -global_transform.basis.z
+
+	return forward.dot(to_target) > 0.5
+	
 
 ##Returns a vector pointing from the missile to the target.
 func get_position_error() -> Vector3:
@@ -421,6 +588,8 @@ func get_rotation_error() -> Vector3:
 ##Applies thruster visibility changes only when state actually changed.
 ##thruster_to_activate is always reset here so stale flags don't persist across avionics ticks.
 func missile_thruster_set_visibility() -> void:
+	if hide_RCS or RCS_deleted:
+		return
 	for i: int in all_thrusters.size():
 		if thruster_to_activate[i] == active_thrusters[i]:
 			continue
@@ -520,62 +689,103 @@ func missile_rotation(direction: Vector3 = Vector3.ZERO, reset: bool = true, vis
 
 
 ##Logic for what happens when the missile collides with something.
-func missile_impact(collider: Node3D) -> void:
+func missile_impact(colliders: Array[Node3D], location : Vector3 = global_position, is_proximity : bool = false) -> void:
 	if hit_target:
 		return
-	if collider and (collider == owner_ship or collider.get_parent().get_parent() == owner_ship) and !armed:
+	elif !armed:
 		return
-
-	#print(collider)
-	exploding_missiles += 1
+	elif !colliders or colliders.is_empty():
+		return
+	set_physics_process(false)
 	hit_target = true
-
-	if collider:
-		global_position += linear_velocity * get_physics_process_delta_time()
-
-	$explosion.play()
-	audio_main_thrust.queue_free()
-	audio_RCS.queue_free()
-
-	if performance_level < 2 or exploding_missiles < 10:
-		$impact.emitting = true
+	thrust_time = -1
+	exploding_missiles += 1
+	freeze = true
+	#print("HIT!!!")
+	if !is_proximity:
+		damage_ship(colliders[0])
+		global_position = location
+		if performance_level < 2 or exploding_missiles < 10:
+			$impact.emitting = !hide_particles
+		else:
+			push_warning("high performance or high explosion count, cancelling explosion.")
+			$impact.queue_free()
+			$TrailBoom.local_coords = true
+		begin_countdown.emit(colliders[0])
 	else:
-		push_warning("high performance or high explosion count, cancelling explosion.")
-		$impact.queue_free()
-
+		for x in colliders:
+			damage_ship(x)
+		$TrailBoom.reparent_to_root = true
+		$TrailBoom.time = 1.0
+		
+		$Proximityboom.emitting = !hide_particles
+		begin_countdown.emit(null)
+	
+	$explosion.play()
+	
+	#free stuff
 	for x : Missile_thruster in all_thrusters:
+		if !x:
+			continue
 		if x.constant_thrust:
 			x.shutdown()
 		x.queue_free()
-
-	set_physics_process(false)
+	audio_main_thrust.queue_free()
+	audio_RCS.queue_free()
 	$LOD.queue_free()
 	$"missile final_001".queue_free()
-	$Text_008.queue_free()
+	if textmesh: textmesh.queue_free()
 	$impactcheck.queue_free()
-	$VaporTrail.update_interval = 0.1
-	thrust_time = -1
-	freeze = true
-
-	await get_tree().create_timer(4.0).timeout
+	
+	
+	await get_tree().create_timer(1.5).timeout
 	queue_free()
 
+func damage_ship(collider: Node3D) -> void:
+	var armor_hardness : float = 1.0
+	var final_final_damage :float = final_damage
+	var collider_hard = collider.get(&"armor_hardness")
+	var parent_hard = collider.get_parent().get_parent().get(&"armor_hardness")
+	
+	#Deal damage based off hardness if the target has it.
+	if collider_hard or parent_hard:
+		armor_hardness = collider.armor_hardness as float if collider_hard else parent_hard as float
+		final_final_damage = final_final_damage * (armor_piercing/armor_hardness)
+		print("final damage is ", final_final_damage)
+	if collider.has_method(&"TakeDamage"):
+		collider.TakeDamage(final_damage)
 
 func missile_LOD() -> void:
 	var dist_cam := _distance_to_cam()
 	var far      := dist_cam > PERFORMANCE_POLL_DISTANCE
 	$"missile final_001".visible = !far
-	$Text_008.visible            = !far
+	if textmesh: textmesh.visible            = !far
 	$LOD.visible                 = far
-	$GPUParticles3D.emitting     = !far
-
+	$TrailBoom.emitting     = !far
+	proximity_enabled = dist_cam < 200 if proximity_fuse_mode != proximity.FORCE_DISABLE else false
+	var too_much := instance_count > PERFORMANCE_MESH_INSTANCE_COUNT
+	$"missile final_001".visible = !too_much
+	if textmesh: textmesh.visible = !too_much
+	$LOD.visible = !too_much
 	if instance_count > PERFORMANCE_POLL_INSTANCE_COUNT and this_id > PERFORMANCE_POLL_INSTANCE_COUNT:
-		$GPUParticles3D.emitting = false
-
-	$VaporTrail.visible = not (
+		$TrailBoom.emitting = false
+	
+	#permanently removes RCS if there are too many.
+	if RCS_this_id > PERFORMANCE_POLL_INSTANCE_COUNT:
+		if RCS_deleted:
+			return
+		for x in all_thrusters:
+			if !x.constant_thrust:
+				x.queue_free()
+		hide_RCS = true
+		print("deleted RCS")
+		
+	
+	
+	$VaporTrail.visible = (not (
 		instance_count > PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME + 50
 		and this_id > PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME
-	)
+	)) or !too_much
 
 
 ##Plays RCS audio if conditions allow (distance, instance count, audio queued).
@@ -595,21 +805,25 @@ func _rcs_audio() -> void:
 func _distance_to_target() -> float:
 	return _cached_dist_to_target
 
-
+var cached_distance := false
 ##Returns the distance to the active camera for the viewport. Cached once per physics frame.
 func _distance_to_cam() -> float:
+	if cached_distance:
+		return cached_camera_distance
 	var current_frame := Engine.get_physics_frames()
 	if !cached_camera or cached_camera_frame != current_frame:
 		cached_camera       = get_viewport().get_camera_3d()
 		cached_camera_frame = current_frame
-	return global_position.distance_to(cached_camera.global_position)
+	cached_distance = false
+	cached_camera_distance = global_position.distance_to(cached_camera.global_position)
+	return cached_camera_distance
 
 
 ##Calculates performance level and avionics tick ratio for this missile instance.
 func compute_tick_avionics_ratio() -> void:
 	_cached_dist_to_target = target_position.distance_to(global_position)
 	var distance           := _cached_dist_to_target
-	print(distance)
+	#print(distance)
 	var new_performance_level: int
 	if distance < PERFORMANCE_POLL_DISTANCE:
 		new_performance_level = 0
@@ -643,17 +857,21 @@ func allow_RCS() -> void:
 		RCS_instance_count > PERFORMANCE_RCS_MAX_INSTANCES
 		or _distance_to_cam() > PERFORMANCE_RCS_DISTANCE_MAX
 	)
+	
 
 
 ##Called when the ShapeCast detects a body.
-func _on_impactcheck_body_hit(collider: Node3D) -> void:
-	missile_impact(collider)
+func _on_impactcheck_body_hit(collider: Node3D, location : Vector3) -> void:
+	missile_impact([collider], location)
+	#print("HIT")
 
 
 ##Called when the RigidBody itself enters a body (backup collision path).
 func _on_body_entered(body: Node) -> void:
-	missile_impact(body as Node3D)
+	missile_impact([body as Node3D], body.global_position)
 
+func _on_proximityfuze_body_entered(body: Node3D) -> void:
+	missile_impact([body], body.global_position, true)
 
 func _exit_tree() -> void:
 	if hit_target:

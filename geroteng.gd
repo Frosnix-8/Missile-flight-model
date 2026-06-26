@@ -4,7 +4,7 @@ extends RigidBody3D
 ##About 100-200 missiles can be loaded before having heavy impacts
 ##on performance. HOwever, damage calculations are not done yet. For more roundede trajectories, 
 ##top speed, acceleration, rotation speeds should be close to each other.
-class_name Missile_Guided
+class_name Missile_Guided_legacy
 ##amount of missile instances in the current tree.
 static var instance_count := 0
 ##amount of missile instances with RCS enabled in the current tree. 
