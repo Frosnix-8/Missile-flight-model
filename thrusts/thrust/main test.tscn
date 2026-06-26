@@ -41,7 +41,7 @@ shape = SubResource("BoxShape3D_4m83u")
 disabled = true
 
 [node name="Collection 3" parent="." unique_id=225455826 instance=ExtResource("2_ntarn")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 46.756535, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20.157837, 46.756535, 0)
 
 [node name="Collection 2" parent="." unique_id=1773675596 instance=ExtResource("2_ntarn")]
 transform = Transform3D(-0.3612644, 0, 0.9324634, 0, 1, 0, -0.9324634, 0, -0.3612644, 107.86037, 0.99991226, 0)

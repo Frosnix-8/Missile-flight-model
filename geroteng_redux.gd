@@ -53,7 +53,7 @@ var this_id := 0
 @export_category("Debug")
 ##Prevents RCS from hiding for cosmetic or debug reasons.
 @export var show_all_thrusters := false
-##Disables fuel timer.
+##Disables fuel timer. Does not apply to dumbfire missiles, as they would fly forever.
 @export var unlimited_fuel := false
 ##Disables all missile strafing. Without linear velocity damping, makes the missile uncontrollable.
 @export var disable_strafe := false
@@ -80,6 +80,9 @@ enum trackmodes {
 	ACTIVE_RADAR,           ##Chases based on radar data from a built-in radar.
 }
 @export var track_mode : trackmodes = trackmodes.PASSIVE_INFRARED
+##Whether the missile will lose the target if it faces away.
+@export var must_face_target : bool = false
+
 
 @onready var Thrust_forward   : Missile_thruster = $ThrustEffect
 @onready var Thrust_right     : Missile_thruster = $ThrustEffect6
@@ -255,8 +258,8 @@ var _cached_dist_to_target : float = 0.0
 ##Cached aim point (PURSUIT or PN depending on current_chase_mode).
 var _aim_point : Vector3 = Vector3.ZERO
 ##Cached distance from the camera, so you odn't have to calculate 10 times a frame.
-static var cached_camera_distance : float = 0.0
-
+var cached_camera_distance : float = 0.0
+var fuse_basis_offset : Basis 
 func _ready() -> void:
 	if hide_particles:
 		$TrailBoom.amount_ratio = 0
@@ -350,11 +353,12 @@ func _ready_proximity_fuse() -> void:
 		return
 	fuse_shape = CylinderShape3D.new()
 	fuse_shape.radius = proximity_fuse_radius
-	fuse_shape.height = 7.0
+	fuse_shape.height = 5.0
 	
 	fuse_sphere = PhysicsShapeQueryParameters3D.new()
 	fuse_sphere.shape = fuse_shape
 	fuse_sphere.transform = global_transform.rotated_local(Vector3.RIGHT, PI / 2)
+	fuse_basis_offset = Basis(Vector3.RIGHT, PI / 2)
 	fuse_sphere.exclude = [self]
 
 
@@ -373,7 +377,7 @@ func _physics_process(delta: float) -> void:
 		#print(performance_level)
 	if tick_avionics % 6 == 0:
 		compute_damage_and_penetration()
-	if thrust_time <= 0 and !unlimited_fuel:
+	if thrust_time <= 0 and (!unlimited_fuel or no_target):
 		_on_fuel_depleted()
 		return
 
@@ -392,13 +396,14 @@ func _physics_process(delta: float) -> void:
 	_rcs_audio()
 
 	collision_check.target_position = collision_check.to_local(linear_velocity) * delta 
-	$"missile final_001".scale = max(1.0, _distance_to_cam()) * 0.01 * Vector3.ONE + Vector3.ONE
+	#$"missile final_001".scale = max(1.0, _distance_to_cam()) * 0.01 * Vector3.ONE + Vector3.ONE
 
 
 ##Handles fuel depletion: frees thrusters, explodes or drifts based on settings.
 func _on_fuel_depleted() -> void:
 	for x : Missile_thruster in all_thrusters:
 		x.queue_free()
+	$MAINTHRUST.stop()
 	if explode_on_fuel_loss:
 		missile_impact([self], global_position)
 	else:
@@ -496,7 +501,10 @@ func compute_target_position(_delta: float) -> void:
 		target_velocity = (target as RigidBody3D).linear_velocity
 
 	is_facing_target = get_position_error().normalized().dot(linear_velocity.normalized()) > 0.1
-
+	if must_face_target and (-global_basis.z).dot(target_position) <= 0.0:
+		print(linear_velocity.dot(target_position) <= 0.0, " failed to track, not facing way")
+		target = null
+		no_target = true
 
 ##Computes the PN intercept point: where the target will be when the missile arrives.
 func compute_pn_intercept_point() -> void:
@@ -540,7 +548,7 @@ func compute_damage_and_penetration() -> void:
 func compute_proximity_fuse() -> void:
 	if !proximity_enabled or !armed:
 		return
-	fuse_sphere.transform = global_transform
+	fuse_sphere.transform = Transform3D(global_transform.basis * fuse_basis_offset, global_transform.origin)
 	var hits = get_world_3d().direct_space_state.intersect_shape(fuse_sphere, 10)
 	if hits.size() == 0:
 		return
@@ -549,7 +557,7 @@ func compute_proximity_fuse() -> void:
 		for hit in hits:
 			if target == hit.collider or target == hit.collider.get_parent().get_parent():
 				
-				if collision_check.check_hit(1.5):
+				if collision_check.check_hit(2.0):
 					return
 				missile_impact([target], global_position, true)
 				
@@ -715,6 +723,8 @@ func missile_impact(colliders: Array[Node3D], location : Vector3 = global_positi
 		global_position = location
 		if performance_level <= 2 or exploding_missiles < 50:
 			$impact.emitting = !hide_particles
+			$Backboom.emitting = !hide_particles
+			$TrailBoom.emitting = !hide_particles
 		else:
 			push_warning("high performance or high explosion count, cancelling explosion.")
 			$impact.queue_free()
@@ -725,8 +735,8 @@ func missile_impact(colliders: Array[Node3D], location : Vector3 = global_positi
 			damage_ship(x)
 		$TrailBoom.reparent_to_root = true
 		$TrailBoom.time = 1.0
-		
-		$Proximityboom.emitting = !hide_particles
+		if performance_level <= 2 or exploding_missiles < 50:
+			$Proximityboom.emitting = !hide_particles
 		begin_countdown.emit(null)
 	
 	$explosion.play()
@@ -769,14 +779,14 @@ func missile_LOD() -> void:
 	$"missile final_001".visible = !far
 	if textmesh: textmesh.visible= !far
 	$LOD.visible                 = far
-	$TrailBoom.emitting          = !far
+	#$TrailBoom.emitting          = !far
 	proximity_enabled = dist_cam < 200 if proximity_fuse_mode != proximity.FORCE_DISABLE else false
 	var too_much := instance_count > PERFORMANCE_MESH_INSTANCE_COUNT
 	#$"missile final_001".visible = !too_much
 	#if textmesh: textmesh.visible = !too_much
 	#$LOD.visible = !too_much
-	if instance_count > PERFORMANCE_POLL_INSTANCE_COUNT and this_id > PERFORMANCE_POLL_INSTANCE_COUNT:
-		$TrailBoom.emitting = false
+	#if instance_count > PERFORMANCE_POLL_INSTANCE_COUNT and this_id > PERFORMANCE_POLL_INSTANCE_COUNT:
+		#$TrailBoom.emitting = false
 	
 	#permanently removes RCS if there are too many.
 	if RCS_this_id > PERFORMANCE_POLL_INSTANCE_COUNT:
@@ -838,12 +848,14 @@ func compute_tick_avionics_ratio() -> void:
 	var distance           := _cached_dist_to_target
 	#print(distance)
 	var new_performance_level: int
-	if distance < PERFORMANCE_POLL_DISTANCE:
+	if distance < PERFORMANCE_POLL_DISTANCE or !armed:
 		new_performance_level = 0
 	elif distance < PERFORMANCE_POLL_DISTANCE_FAR:
 		new_performance_level = 1
 	else:
 		new_performance_level = 2
+	
+	
 
 	## global_performance_level is computed once per 15-tick block, shared across all missiles.
 	if global_performance_level == -1:

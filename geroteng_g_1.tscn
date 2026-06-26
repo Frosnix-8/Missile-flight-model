@@ -124,7 +124,7 @@ blend_shape_mode = 0
 size = Vector3(0.32, 1.9366602, 0.32)
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_j3pel"]
-radius = 0.61
+radius = 0.211
 
 [sub_resource type="GDScript" id="GDScript_m3eeq"]
 resource_name = "impactscript"
@@ -142,12 +142,10 @@ func _physics_process(_delta: float) -> void:
 func check_hit(mult: float = 1.0) -> bool:
 	if mult != 1.0:
 		target_position *= mult
-		await get_tree().physics_frame
-		
-		
+		force_shapecast_update()
 	if get_collision_count() == 0:
 		return false
-	var hit := get_collider(0) 
+	var hit := get_collider(0)
 	if hit:
 		body_hit.emit(get_collider(0), get_collision_point(0))
 	return true
@@ -168,13 +166,12 @@ distance_fade_min_distance = 1.0
 _data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.10638299, 1), 3.7720697, 0.0, 0, 0, Vector2(0.69841266, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
 point_count = 4
 
-[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_m3eeq"]
-lifetime_randomness = 0.44
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_12n53"]
 particle_flag_align_y = true
-direction = Vector3(0, 0, -1)
-spread = 6.185
-initial_velocity_min = 45.7
-initial_velocity_max = 103.49
+direction = Vector3(0, 0, 1)
+spread = 83.382
+initial_velocity_min = 61.579998
+initial_velocity_max = 102.259995
 gravity = Vector3(0, 0, 0)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_7qqlg"]
@@ -187,8 +184,8 @@ billboard_keep_scale = true
 [sub_resource type="SphereMesh" id="SphereMesh_m3eeq"]
 material = SubResource("StandardMaterial3D_7qqlg")
 uv2_padding = 4.1
-radius = 0.236
-height = 0.728
+radius = 0.203
+height = 1.341
 radial_segments = 8
 rings = 8
 
@@ -243,26 +240,20 @@ particle_flag_align_y = true
 inherit_velocity_ratio = 0.459
 direction = Vector3(0, 1, 0)
 spread = 180.0
-flatness = 1.0
-initial_velocity_min = 166.81
+flatness = 0.838
+initial_velocity_min = 163.34999
 initial_velocity_max = 177.56
 gravity = Vector3(0, 0, 0)
 damping_max = 1.0400001
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_p4j0i"]
-emission_enabled = true
-emission = Color(0.9539996, 0.39950222, 0, 1)
-emission_energy_multiplier = 4.0
-disable_receive_shadows = true
-billboard_keep_scale = true
-
-[sub_resource type="SphereMesh" id="SphereMesh_p4j0i"]
-material = SubResource("StandardMaterial3D_p4j0i")
-uv2_padding = 4.1
-radius = 0.3
-height = 1.394
-radial_segments = 8
-rings = 8
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_m3eeq"]
+lifetime_randomness = 0.26
+particle_flag_align_y = true
+direction = Vector3(0, 0, -1)
+spread = 4.534
+initial_velocity_min = 97.6
+initial_velocity_max = 158.84999
+gravity = Vector3(0, 0, 0)
 
 [node name="Geroteng G-1" type="RigidBody3D" unique_id=1758481796]
 mass = 85.0
@@ -274,12 +265,11 @@ angular_damp = 1.0
 script = ExtResource("1_mvhaw")
 unlimited_fuel = true
 launch_speed = 100.0
-max_straight_line_speed = 500.0
-linear_agility = 200.0
+linear_agility = 412.73
 forward_acceleration = 200.0
 angular_agility = 2.718
-warhead_type = 0
-proximity_fuse_radius = 10.0
+proximity_fuse_radius = 20.23
+main_thrust_volume_db = -8.995
 main_thrust_pitch_scale = 2.125
 thrust_pitch_scale = 1.025
 explosion_volume_db = -1.86
@@ -291,14 +281,14 @@ cast_shadow = 0
 mesh = SubResource("CylinderMesh_mvhaw")
 
 [node name="missile final_001" type="MeshInstance3D" parent="." unique_id=345212515]
-transform = Transform3D(1.69, 0, 0, 0, 1.69, 0, 0, 0, 1.69, 0, 0, 0)
+transform = Transform3D(2.355, 0, 0, 0, 2.355, 0, 0, 0, 2.355, 0, 0, 0)
 cast_shadow = 0
 gi_mode = 2
 visibility_range_end = 1000.0
 mesh = SubResource("ArrayMesh_5gp5x")
 
 [node name="Text_008" type="MeshInstance3D" parent="." unique_id=90014084]
-transform = Transform3D(1.69, 0, 0, 0, 1.69, 0, 0, 0, 1.69, 0, 0, 0)
+transform = Transform3D(2.355, 0, 0, 0, 2.355, 0, 0, 0, 2.355, 0, 0, 0)
 cast_shadow = 0
 gi_mode = 2
 visibility_range_end = 1000.0
@@ -334,44 +324,28 @@ transform = Transform3D(-6.504255e-08, 0, 1.022, 0, 1.022, 0, -1.488, 0, -4.4673
 constant_thrust = true
 
 [node name="ThrustEffect2" parent="." unique_id=1370176058 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(1.5935116e-15, -4.9175313e-08, 1.125, -0.834, -4.9175313e-08, 0, 3.6455297e-08, -1.125, -4.9175313e-08, 0, 0.5933424, -1.0061011)
+transform = Transform3D(1.5935116e-15, -4.9175313e-08, 1.125, -0.834, -4.9175313e-08, 0, 3.6455297e-08, -1.125, -4.9175313e-08, 0, 0.82139385, -1.3612202)
 
 [node name="ThrustEffect5" parent="." unique_id=1019255739 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(1.5935112e-15, 4.9175306e-08, 1.1249999, 0.834, -4.917531e-08, 3.5495345e-23, 3.6455294e-08, 1.1249999, -4.9175306e-08, 0, -0.63260806, -1.0061011)
+transform = Transform3D(1.5935112e-15, 4.9175306e-08, 1.1249999, 0.834, -4.917531e-08, 3.5495345e-23, 3.6455294e-08, 1.1249999, -4.9175306e-08, 0, -0.8089545, -1.3612202)
 
 [node name="ThrustEffect4" parent="." unique_id=1922949306 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(1.5935114e-15, 4.9175313e-08, 1.125, 0.834, -4.9175313e-08, 3.2800587e-22, 3.6455297e-08, 1.125, -4.9175313e-08, 0, -0.63260806, 0.7178606)
+transform = Transform3D(1.5935114e-15, 4.9175313e-08, 1.125, 0.834, -4.9175313e-08, 3.2800587e-22, 3.6455297e-08, 1.125, -4.9175313e-08, 0, -0.81515676, 1.0185145)
 
 [node name="ThrustEffect3" parent="." unique_id=510447756 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(1.5935116e-15, -4.9175313e-08, 1.125, -0.834, -4.9175313e-08, 4.1553002e-23, 3.6455297e-08, -1.125, -4.9175313e-08, 0, 0.5933424, 0.7182857)
+transform = Transform3D(1.5935116e-15, -4.9175313e-08, 1.125, -0.834, -4.9175313e-08, 4.1553002e-23, 3.6455297e-08, -1.125, -4.9175313e-08, 0, 0.80295146, 1.0189396)
 
 [node name="ThrustEffect6" parent="." unique_id=178567755 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(0.834, 1.4752594e-07, 6.4485635e-15, 0, -4.9175313e-08, 1.125, 1.093659e-07, -1.125, -4.9175313e-08, -0.6850657, -8.576022e-05, -1.0061013)
+transform = Transform3D(0.834, 1.4752594e-07, 6.4485635e-15, 0, -4.9175313e-08, 1.125, 1.093659e-07, -1.125, -4.9175313e-08, -0.8267522, -8.576022e-05, -1.3612204)
 
 [node name="ThrustEffect7" parent="." unique_id=325359602 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(-0.834, -1.6987028e-07, -7.425265e-15, 0, -4.9175313e-08, 1.125, -1.259305e-07, 1.125, 4.9175313e-08, 0.7198717, -8.569518e-05, -1.0061011)
+transform = Transform3D(-0.834, -1.6987028e-07, -7.425265e-15, 0, -4.9175313e-08, 1.125, -1.259305e-07, 1.125, 4.9175313e-08, 0.79456323, -8.569518e-05, -1.3612202)
 
 [node name="ThrustEffect8" parent="." unique_id=563624523 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(-0.834, -1.6987028e-07, -7.4252645e-15, -4.47395e-22, -4.9175306e-08, 1.1249999, -1.259305e-07, 1.1249999, 4.9175306e-08, 0.7202143, -8.560315e-05, 0.71786064)
+transform = Transform3D(-0.834, -1.6987028e-07, -7.4252645e-15, -4.47395e-22, -4.9175306e-08, 1.1249999, -1.259305e-07, 1.1249999, 4.9175306e-08, 0.83167166, -8.560315e-05, 1.0185146)
 
 [node name="ThrustEffect9" parent="." unique_id=886242152 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(0.834, 1.4752594e-07, 6.4485635e-15, 0, -4.9175313e-08, 1.125, 1.093659e-07, -1.125, -4.9175313e-08, -0.6850657, -8.5668165e-05, 0.7182856)
-
-[node name="impact" type="GPUParticles3D" parent="." unique_id=1482855339]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.0040925)
-cast_shadow = 0
-gi_mode = 2
-emitting = false
-amount = 102
-lifetime = 2.71
-one_shot = true
-explosiveness = 1.0
-fixed_fps = 1
-visibility_aabb = AABB(-8, -8, -140, 16, 16, 150)
-process_material = SubResource("ParticleProcessMaterial_m3eeq")
-draw_pass_1 = SubResource("SphereMesh_m3eeq")
-script = ExtResource("4_p4j0i")
-time = 5.005
+transform = Transform3D(0.834, 1.4752594e-07, 6.4485635e-15, 0, -4.9175313e-08, 1.125, 1.093659e-07, -1.125, -4.9175313e-08, -0.8378498, -8.5668165e-05, 1.0189395)
 
 [node name="RCS" type="AudioStreamPlayer3D" parent="." unique_id=1796765180]
 stream = ExtResource("5_iwfhy")
@@ -400,13 +374,24 @@ pitch_scale = 1.25
 attenuation_filter_cutoff_hz = 3579.0
 attenuation_filter_db = -12.1
 
+[node name="Backboom" type="GPUParticles3D" parent="." unique_id=713022186]
+emitting = false
+amount = 275
+lifetime = 2.0
+one_shot = true
+explosiveness = 0.98
+fixed_fps = 25
+process_material = SubResource("ParticleProcessMaterial_12n53")
+draw_pass_1 = SubResource("SphereMesh_m3eeq")
+script = ExtResource("4_p4j0i")
+
 [node name="TrailBoom" type="GPUParticles3D" parent="." unique_id=384781553]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.3663995)
 cast_shadow = 0
 visibility_range_end = 600.0
-amount = 400
-preprocess = 0.2
-fixed_fps = 60
+emitting = false
+amount = 100
+preprocess = 0.13
 visibility_aabb = AABB(-50, -50, -50, 100, 100, 100)
 transform_align = 1
 transform_align_channel_filter = 1
@@ -424,14 +409,31 @@ emitting = false
 amount = 300
 one_shot = true
 explosiveness = 0.94
+fixed_fps = 25
 visibility_aabb = AABB(-50, -50, -50, 100, 100, 100)
 transform_align = 2
 process_material = SubResource("ParticleProcessMaterial_p4j0i")
-draw_pass_1 = SubResource("SphereMesh_p4j0i")
+draw_pass_1 = SubResource("SphereMesh_m3eeq")
 script = ExtResource("4_p4j0i")
 
+[node name="impact" type="GPUParticles3D" parent="." unique_id=1788591427]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.0040925)
+cast_shadow = 0
+gi_mode = 2
+emitting = false
+amount = 265
+lifetime = 0.99
+one_shot = true
+explosiveness = 0.99
+fixed_fps = 25
+visibility_aabb = AABB(-8, -8, -140, 16, 16, 150)
+process_material = SubResource("ParticleProcessMaterial_m3eeq")
+draw_pass_1 = SubResource("SphereMesh_m3eeq")
+script = ExtResource("4_p4j0i")
+time = 1.1
+
 [connection signal="begin_countdown" from="." to="VaporTrail" method="on_begin_countdown"]
-[connection signal="begin_countdown" from="." to="impact" method="on_begin_countdown"]
+[connection signal="begin_countdown" from="." to="Backboom" method="on_begin_countdown"]
 [connection signal="begin_countdown" from="." to="TrailBoom" method="on_begin_countdown"]
 [connection signal="body_entered" from="." to="." method="_on_body_entered"]
 [connection signal="body_hit" from="impactcheck" to="." method="_on_impactcheck_body_hit"]

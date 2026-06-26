@@ -13,5 +13,6 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 
 func on_begin_countdown(new_parent : Node3D) -> void:
+	
 	call_deferred("reparent",get_tree().current_scene if reparent_to_root or !new_parent else new_parent, true)
 	go = true
