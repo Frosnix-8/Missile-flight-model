@@ -280,17 +280,24 @@ func _ready() -> void:
 		Thrust_up,    Thrust_up_aft,
 	])
 
-	for x : Missile_thruster in all_thrusters:
+	#prepare all RCS
+	for x: Missile_thruster in all_thrusters:
 		if x.animation_start() != Error.OK:
 			push_error(self, " failed to start thruster animation on ", x)
 		if !show_all_thrusters:
 			x.ide()
-		if hide_RCS and !x.constant_thrust:
-			x.queue_free()
-			RCS_deleted = true
-			
-	if RCS_deleted:
-		print("deleted RCS")
+
+	if hide_RCS:
+		for x: Missile_thruster in all_thrusters:
+			if !x.constant_thrust:
+				x.queue_free()
+		var keep: Array[Missile_thruster] = []
+		for t: Missile_thruster in all_thrusters:
+			if t.constant_thrust:
+				keep.append(t)
+		all_thrusters = keep
+		RCS_deleted = true
+	
 	var show_rcs_later := false
 	if !hide_RCS:
 		RCS_instance_count += 1
@@ -777,8 +784,13 @@ func missile_LOD() -> void:
 		for x in all_thrusters:
 			if !x.constant_thrust:
 				x.queue_free()
+		var keep: Array[Missile_thruster] = []
+		for t: Missile_thruster in all_thrusters:
+			if t.constant_thrust:
+				keep.append(t)
+		all_thrusters = keep
 		hide_RCS = true
-		print("deleted RCS")
+		RCS_deleted = true
 		
 	
 	

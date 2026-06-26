@@ -350,7 +350,6 @@ transform = Transform3D(0.834, 1.4752594e-07, 6.4485635e-15, 0, -4.9175313e-08, 
 
 [node name="impact" type="GPUParticles3D" parent="." unique_id=1482855339]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.0040925)
-visible = false
 cast_shadow = 0
 gi_mode = 2
 emitting = false
@@ -394,7 +393,6 @@ attenuation_filter_db = -12.1
 
 [node name="TrailBoom" type="GPUParticles3D" parent="." unique_id=384781553]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.3663995)
-visible = false
 cast_shadow = 0
 visibility_range_end = 600.0
 amount = 400
@@ -411,7 +409,6 @@ time = 4.0
 
 [node name="Proximityboom" type="GPUParticles3D" parent="." unique_id=1158988606]
 transform = Transform3D(-4.371139e-08, 0, 1, 0, 1, 0, -1, 0, -4.371139e-08, 0, 0, 0)
-visible = false
 cast_shadow = 0
 visibility_range_end = 1000.0
 emitting = false
