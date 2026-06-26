@@ -21,23 +21,6 @@ volumetric_fog_density = 0.007
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_4m83u"]
 
-[sub_resource type="GDScript" id="GDScript_2cq5c"]
-resource_name = "look at smth"
-script/source = "extends Camera3D
-@export var target : Node3D
-var blacklist : Array[Missile_Guided]
-
-
-# Called every frame. 'delta' is the elapsed time since the previous frame.
-func _physics_process(_delta: float) -> void:
-	if target:
-		global_basis = global_transform.looking_at(target.position).basis
-	else:
-		for x in get_parent().get_children(0):
-			if x is Missile_Guided and x not in blacklist:
-				target = x
-"
-
 [node name="Node3D" type="Node3D" unique_id=856839224]
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1779876775]
@@ -62,9 +45,3 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 46.756535, 0)
 
 [node name="Collection 2" parent="." unique_id=1773675596 instance=ExtResource("2_ntarn")]
 transform = Transform3D(-0.3612644, 0, 0.9324634, 0, 1, 0, -0.9324634, 0, -0.3612644, 107.86037, 0.99991226, 0)
-
-[node name="Camera3D2" type="Camera3D" parent="." unique_id=1491982588]
-transform = Transform3D(0.9998986, 0.006789362, -0.012518921, -0.0072032693, 0.99941885, -0.0333194, 0.012285427, 0.033406198, 0.9993664, 3.0019112, 15.940323, 13.861069)
-doppler_tracking = 1
-fov = 98.5
-script = SubResource("GDScript_2cq5c")

@@ -123,8 +123,8 @@ blend_shape_mode = 0
 [sub_resource type="BoxShape3D" id="BoxShape3D_7qqlg"]
 size = Vector3(0.32, 1.9366602, 0.32)
 
-[sub_resource type="SphereShape3D" id="SphereShape3D_p4j0i"]
-radius = 0.7
+[sub_resource type="SphereShape3D" id="SphereShape3D_j3pel"]
+radius = 0.61
 
 [sub_resource type="GDScript" id="GDScript_m3eeq"]
 resource_name = "impactscript"
@@ -140,14 +140,18 @@ func _physics_process(_delta: float) -> void:
 	
 		
 func check_hit(mult: float = 1.0) -> bool:
-	#if mult != 1.0:
-		#target_position *= mult
-		#force_shapecast_update()
+	if mult != 1.0:
+		target_position *= mult
+		await get_tree().physics_frame
+		
+		
+	if get_collision_count() == 0:
+		return false
 	var hit := get_collider(0) 
 	if hit:
 		body_hit.emit(get_collider(0), get_collision_point(0))
-		return true
-	return false
+	return true
+	
 "
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_m3eeq"]
@@ -269,12 +273,12 @@ angular_damp_mode = 1
 angular_damp = 1.0
 script = ExtResource("1_mvhaw")
 unlimited_fuel = true
-chase_mode = 1
 launch_speed = 100.0
 max_straight_line_speed = 500.0
 linear_agility = 200.0
 forward_acceleration = 200.0
 angular_agility = 2.718
+warhead_type = 0
 proximity_fuse_radius = 10.0
 main_thrust_pitch_scale = 2.125
 thrust_pitch_scale = 1.025
@@ -307,7 +311,7 @@ disabled = true
 
 [node name="impactcheck" type="ShapeCast3D" parent="." unique_id=1425298116]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.020413637)
-shape = SubResource("SphereShape3D_p4j0i")
+shape = SubResource("SphereShape3D_j3pel")
 target_position = Vector3(0, 0, -1.95)
 margin = 0.4
 debug_shape_custom_color = Color(1, 0.4657101, 0.5555695, 1)

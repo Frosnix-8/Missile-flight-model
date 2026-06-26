@@ -57,15 +57,14 @@ func _process(delta: float) -> void:
 	var input = Input.get_vector(\"ui_left\", \"ui_right\",\"ui_up\", \"ui_down\" )
 	if input:
 		position += basis * Vector3(input.x,0,input.y) * delta * 10
-	if Input.is_action_just_pressed(\"ui_accept\"):
-		for x in range(50):
-			var new_missile : Missile_Guided = missile.instantiate()
-			new_missile.target = get_node(\"../../Collection 3\")
-			new_missile.owner_ship = get_parent()
-			get_parent().get_parent().add_child(new_missile)
-			new_missile.global_position = Vector3(107.86, -5, 0)
-			new_missile.global_rotation = Vector3(0,deg_to_rad(111.2), 0)
-			await get_tree().physics_frame
+	if Input.is_action_pressed(\"ui_accept\"):
+		var new_missile : Missile_Guided = missile.instantiate()
+		new_missile.target = get_node(\"../../Collection 3\")
+		new_missile.owner_ship = get_parent()
+		get_parent().get_parent().add_child(new_missile)
+		new_missile.global_position = Vector3(107.86, -5, 0)
+		new_missile.global_rotation = Vector3(0,deg_to_rad(111.2), 0)
+
 
 			
 			
@@ -83,16 +82,16 @@ func _unhandled_input(event: InputEvent) -> void:
 [node name="Collection 2" unique_id=225455826 instance=ExtResource("1_flrvv")]
 script = SubResource("GDScript_p4j0i")
 
-[node name="interior" parent="." index="0" unique_id=52924037]
+[node name="interior" parent="." index="0" unique_id=271620361]
 transform = Transform3D(-4.3711385e-08, 0, -0.99999994, 0, 1, 0, 0.99999994, 0, -4.3711385e-08, 0, 0, 0)
 
-[node name="LG" parent="." index="1" unique_id=755987586]
+[node name="LG" parent="." index="1" unique_id=654205888]
 transform = Transform3D(-4.3711385e-08, 0, -0.99999994, 0, 1, 0, 0.99999994, 0, -4.3711385e-08, 0, 0, 0)
 
-[node name="body_001" parent="." index="2" unique_id=872173102]
+[node name="body_001" parent="." index="2" unique_id=1299461681]
 transform = Transform3D(-4.3711385e-08, 0, -0.99999994, 0, 1, 0, 0.99999994, 0, -4.3711385e-08, 0, 0, 0)
 
-[node name="panelling_001" parent="." index="3" unique_id=1420616634]
+[node name="panelling_001" parent="." index="3" unique_id=1811993839]
 transform = Transform3D(-4.3711385e-08, 0, -0.99999994, 0, 1, 0, 0.99999994, 0, -4.3711385e-08, 0, 0, 0)
 
 [node name="StaticBody3D" type="StaticBody3D" parent="panelling_001" index="0" unique_id=356395056]
@@ -121,7 +120,7 @@ shape = SubResource("ConvexPolygonShape3D_kv7hr")
 [node name="CollisionShape3D8" type="CollisionShape3D" parent="panelling_001/StaticBody3D" index="7" unique_id=1423930382]
 shape = SubResource("ConvexPolygonShape3D_0srak")
 
-[node name="OccluderInstance3D" parent="." index="4" unique_id=1869795870]
+[node name="OccluderInstance3D" parent="." index="4" unique_id=1566600336]
 transform = Transform3D(-4.3711385e-08, 0, -0.99999994, 0, 1, 0, 0.99999994, 0, -4.3711385e-08, 0, 0, 0)
 
 [node name="Camera3D" type="Camera3D" parent="." index="5" unique_id=2139534552]

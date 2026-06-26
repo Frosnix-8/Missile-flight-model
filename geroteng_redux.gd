@@ -266,7 +266,7 @@ func _ready() -> void:
 	max_straight_line_speed = max_straight_line_speed * max_straight_line_speed
 	instance_count += 1
 	this_id = instance_count
-	if this_id > 10:
+	if this_id > float(PERFORMANCE_MESH_INSTANCE_COUNT) / 100:
 		textmesh.queue_free()
 
 	
@@ -711,13 +711,14 @@ func missile_impact(colliders: Array[Node3D], location : Vector3 = global_positi
 	#print("HIT!!!")
 	if !is_proximity:
 		damage_ship(colliders[0])
+		$TrailBoom.local_coords = true
 		global_position = location
-		if performance_level < 2 or exploding_missiles < 10:
+		if performance_level <= 2 or exploding_missiles < 50:
 			$impact.emitting = !hide_particles
 		else:
 			push_warning("high performance or high explosion count, cancelling explosion.")
 			$impact.queue_free()
-			$TrailBoom.local_coords = true
+			
 		begin_countdown.emit(colliders[0])
 	else:
 		for x in colliders:
@@ -764,16 +765,16 @@ func damage_ship(collider: Node3D) -> void:
 
 func missile_LOD() -> void:
 	var dist_cam := _distance_to_cam()
-	var far      := dist_cam > PERFORMANCE_POLL_DISTANCE
+	var far      := dist_cam > PERFORMANCE_POLL_DISTANCE_FAR
 	$"missile final_001".visible = !far
-	if textmesh: textmesh.visible            = !far
+	if textmesh: textmesh.visible= !far
 	$LOD.visible                 = far
-	$TrailBoom.emitting     = !far
+	$TrailBoom.emitting          = !far
 	proximity_enabled = dist_cam < 200 if proximity_fuse_mode != proximity.FORCE_DISABLE else false
 	var too_much := instance_count > PERFORMANCE_MESH_INSTANCE_COUNT
-	$"missile final_001".visible = !too_much
-	if textmesh: textmesh.visible = !too_much
-	$LOD.visible = !too_much
+	#$"missile final_001".visible = !too_much
+	#if textmesh: textmesh.visible = !too_much
+	#$LOD.visible = !too_much
 	if instance_count > PERFORMANCE_POLL_INSTANCE_COUNT and this_id > PERFORMANCE_POLL_INSTANCE_COUNT:
 		$TrailBoom.emitting = false
 	
