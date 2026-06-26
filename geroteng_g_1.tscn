@@ -123,9 +123,12 @@ blend_shape_mode = 0
 [sub_resource type="BoxShape3D" id="BoxShape3D_7qqlg"]
 size = Vector3(0.32, 1.9366602, 0.32)
 
+[sub_resource type="SphereShape3D" id="SphereShape3D_p4j0i"]
+radius = 0.7
+
 [sub_resource type="GDScript" id="GDScript_m3eeq"]
 resource_name = "impactscript"
-script/source = "extends RayCast3D
+script/source = "extends ShapeCast3D
 @export_category(\"DEBUG\")
 @export var disabled := false
 signal body_hit(collider: Node3D, location: Vector3)
@@ -137,12 +140,12 @@ func _physics_process(_delta: float) -> void:
 	
 		
 func check_hit(mult: float = 1.0) -> bool:
-	if mult != 1.0:
-		target_position *= mult
-		force_raycast_update()
-	var hit := get_collider() 
+	#if mult != 1.0:
+		#target_position *= mult
+		#force_shapecast_update()
+	var hit := get_collider(0) 
 	if hit:
-		body_hit.emit(get_collider(), get_collision_point())
+		body_hit.emit(get_collider(0), get_collision_point(0))
 		return true
 	return false
 "
@@ -302,9 +305,11 @@ transform = Transform3D(1, 0, 0, 0, -4.371139e-08, -1, 0, 1, -4.371139e-08, 0, 2
 shape = SubResource("BoxShape3D_7qqlg")
 disabled = true
 
-[node name="impactcheck" type="RayCast3D" parent="." unique_id=328369168]
+[node name="impactcheck" type="ShapeCast3D" parent="." unique_id=1425298116]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.020413637)
+shape = SubResource("SphereShape3D_p4j0i")
 target_position = Vector3(0, 0, -1.95)
+margin = 0.4
 debug_shape_custom_color = Color(1, 0.4657101, 0.5555695, 1)
 script = SubResource("GDScript_m3eeq")
 

@@ -107,7 +107,7 @@ var active_thrusters    : Array[bool] = [false,false,false,false,false,false,fal
 var thruster_to_activate: Array[bool] = [false,false,false,false,false,false,false,false,false]
 
 ##ShapeCast that detects objects. Faces missile attitude, length = distance traveled per frame.
-@onready var collision_check  : RayCast3D           = $impactcheck
+@onready var collision_check  : ShapeCast3D           = $impactcheck
 ##Audio for main thrust.
 @onready var audio_main_thrust: AudioStreamPlayer3D = $MAINTHRUST
 ##Audio for RCS effects. Has polyphony.
