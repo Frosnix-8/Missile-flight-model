@@ -7,7 +7,6 @@ extends RigidBody3D
 class_name Missile_Guided
 ##Reparents all long time nodes. Leave null to not move anything.
 signal begin_countdown(new_parent : Node3D)
-
 ##amount of missile instances in the current tree.
 static var instance_count := 0
 ##amount of missile instances with RCS enabled in the current tree.
@@ -23,6 +22,7 @@ static var cached_camera_frame : int = 0
 static var exploding_missiles : int = 0
 
 #region static performance variables
+#all these variables should be configurable via a 
 ##Past this amount of RCS missiles, RCS will no longer render.
 const PERFORMANCE_RCS_MAX_INSTANCES := 20
 ##Distance past which RCS will not render.
@@ -58,6 +58,18 @@ var this_id := 0
 ##Disables all missile strafing. Without linear velocity damping, makes the missile uncontrollable.
 @export var disable_strafe := false
 
+#region track-homing
+@export_category("Internode methods")
+##Method attempted on the target when damage is dealt, emitted via direct method call. Expects one damage argument. Leave empty to ignore.
+@export var method_deal_damage : StringName = &"TakeDamage"
+##Signal Method attempted on the target when tracked, expects 1: Node3D that designates ID of the tracking missile; 2: tracking type of the missile (idk). I'll let you do handle this. Leave empty to ignore.
+##the missile does not support signals for this, as only one target can be tracked at once.
+@export var method_warn_target : StringName = &"warning_missile_track"
+var target_can_be_warned := false
+##Variable that the missile searches on targets if armor piercing is used.
+@export var variable_armor_hardness : StringName = &"armor_hardness"
+
+
 @export_category("Missile Homing")
 ##Chase modes.
 enum chasemodes {
@@ -82,8 +94,8 @@ enum trackmodes {
 @export var track_mode : trackmodes = trackmodes.PASSIVE_INFRARED
 ##Whether the missile will lose the target if it faces away.
 @export var must_face_target : bool = false
-
-
+#endregion
+#region Nodes
 @onready var Thrust_forward   : Missile_thruster = $ThrustEffect
 @onready var Thrust_right     : Missile_thruster = $ThrustEffect6
 @onready var Thrust_left      : Missile_thruster = $ThrustEffect7
@@ -117,10 +129,13 @@ var thruster_to_activate: Array[bool] = [false,false,false,false,false,false,fal
 @onready var audio_RCS        : AudioStreamPlayer3D = $RCS
 ##Whether the missile is expecting to play RCS audio this frame.
 var RCS_audio_queued := false
+#endregion
 
+#region specs
 @export_category("Missile Specifications")
 ##Speed when launched from ship. An impulse of n * mass newtons is applied in -Z (forward) on spawn.
 @export var launch_speed       : float = 10.0
+var velocity_inherited : Vector3 = Vector3.ZERO
 ##Time before the missile starts maneuvering.
 @export var launch_clear_time  : float = 0.5
 ##Time during which the missile cannot collide with its owner.
@@ -143,9 +158,9 @@ var armed        := false
 @export var explode_on_fuel_loss := false
 ##Theoretical health of the missile. If below, forces disable / detonation.
 @export var health := 30.0
+#endregion
 
-
-
+#region damage
 @export_category("Missile Damage")
 ##Base damage of the missile.
 @export var base_damage := 60
@@ -199,7 +214,8 @@ var proximity_enabled : bool = false
 var fuse_build := false
 var fuse_shape :CylinderShape3D
 var fuse_sphere :PhysicsShapeQueryParameters3D
-
+#endregion
+#region Audio Visual
 @export_category("Visual Parameters")
 ##Disables all visual and auditive RCS features. Does not disable strafing.
 @export var hide_RCS    := false
@@ -222,7 +238,8 @@ var RCS_deleted := false
 @export var explosion_volume_db: float = 0.0
 ##Volume variation for ALL sounds on this node.
 @export var master_effect_volume_db: float = 0.0
-
+#endregion
+#region Targetting
 @export_category("Target")
 ##Debug target. Best assigned via script in real implementations.
 @export var target    : Node3D
@@ -241,7 +258,8 @@ var is_facing_target  : bool = false
 var no_target         := true
 ##Set to true on collision.
 var hit_target        := false
-
+#endregion
+#region performance and cache
 ##Physics tick counter, increments each physics frame.
 var tick_avionics     := 0
 ##0 = highest fidelity, higher = less frequent avionics updates.
@@ -260,6 +278,9 @@ var _aim_point : Vector3 = Vector3.ZERO
 ##Cached distance from the camera, so you odn't have to calculate 10 times a frame.
 var cached_camera_distance : float = 0.0
 var fuse_basis_offset : Basis 
+
+#endregion
+
 func _ready() -> void:
 	if hide_particles:
 		$TrailBoom.amount_ratio = 0
@@ -272,7 +293,9 @@ func _ready() -> void:
 	if this_id > float(PERFORMANCE_MESH_INSTANCE_COUNT) / 100:
 		textmesh.queue_free()
 
-	
+	if target.has_method(method_warn_target):
+		target_can_be_warned = true
+		
 	
 
 	all_thrusters.assign([
@@ -323,7 +346,7 @@ func _ready() -> void:
 	
 	
 	await get_tree().physics_frame
-	apply_central_impulse(basis * Vector3.FORWARD * launch_speed * mass)
+	apply_central_impulse(((basis * Vector3.FORWARD * launch_speed) + velocity_inherited) * mass)
 	await get_tree().create_timer(launch_clear_time).timeout
 	can_maneuver = true
 	hide_RCS = !show_rcs_later
@@ -361,7 +384,17 @@ func _ready_proximity_fuse() -> void:
 	fuse_basis_offset = Basis(Vector3.RIGHT, PI / 2)
 	fuse_sphere.exclude = [self]
 
-
+##Call with the missile host. Initates the new target.
+func ready_launch_parameters(ship_who_launched_the_missile : Node3D, initial_velocity: Vector3, initial_target : Node3D = null) -> Error:
+	velocity_inherited = initial_velocity
+	owner_ship = ship_who_launched_the_missile
+	if !initial_target: 
+		no_target = true
+		return OK
+	no_target = false
+	target = initial_target
+	
+	return OK
 
 
 func _physics_process(delta: float) -> void:
@@ -371,28 +404,30 @@ func _physics_process(delta: float) -> void:
 	
 	if tick_avionics % 15 == 0:
 		global_performance_level = -1
-		compute_tick_avionics_ratio()
-		allow_RCS()
-		missile_LOD()
+		_compute_tick_avionics_ratio()
+		_allow_RCS()
+		_missile_LOD()
+		if target_can_be_warned:
+			target.call(method_warn_target, self, track_mode)
 		#print(performance_level)
 	if tick_avionics % 6 == 0:
-		compute_damage_and_penetration()
+		_compute_damage_and_penetration()
 	if thrust_time <= 0 and (!unlimited_fuel or no_target):
 		_on_fuel_depleted()
 		return
 
 	if tick_avionics % current_avionic_tick_ratio == 0:
 		_cached_inv_basis = basis.inverse()
-		compute_target_position(delta)
-		compute_thrust()
-		compute_rotation_thrust()
+		_compute_target_position(delta)
+		_compute_thrust()
+		_compute_rotation_thrust()
 		
 	if (tick_avionics + 1) % (min(current_avionic_tick_ratio + 1, 3)) == 0:
-		compute_proximity_fuse()
+		_compute_proximity_fuse()
 		#print("computing fuse")
 	
 
-	missile_thruster_set_visibility()
+	_missile_thruster_set_visibility()
 	_rcs_audio()
 
 	collision_check.target_position = collision_check.to_local(linear_velocity) * delta 
@@ -405,7 +440,7 @@ func _on_fuel_depleted() -> void:
 		x.queue_free()
 	$MAINTHRUST.stop()
 	if explode_on_fuel_loss:
-		missile_impact([self], global_position)
+		_missile_impact([self], global_position)
 	else:
 		set_physics_process(false)
 		await get_tree().create_timer(10.0).timeout
@@ -420,9 +455,9 @@ func _get_aim_point() -> Vector3:
 
 
 ##Computes how the missile should strafe relative to the target. Decides based on chase mode.
-func compute_thrust() -> void:
+func _compute_thrust() -> void:
 	if no_target or !can_maneuver:
-		missile_thrust(Vector3.FORWARD, true)
+		_missile_thrust(Vector3.FORWARD, true)
 		return
 
 	match chase_mode:
@@ -431,17 +466,17 @@ func compute_thrust() -> void:
 		chasemodes.PROPORTIONAL_NAVIGATION:
 			if is_facing_target:
 				current_chase_mode = chasemodes.PROPORTIONAL_NAVIGATION
-				compute_pn_intercept_point()
+				_compute_pn_intercept_point()
 			else:
 				current_chase_mode = chasemodes.PURSUIT
 
 	## Update aim point after PN intercept is computed (if applicable).
 	_aim_point = _get_aim_point()
-	compute_strafe_thrust()
+	_compute_strafe_thrust()
 
 
 ##Computes which local thrust axes to activate to cancel all lateral drift.
-func compute_strafe_thrust() -> void:
+func _compute_strafe_thrust() -> void:
 	var local_velocity: Vector3 = _cached_inv_basis * linear_velocity
 	var final_thrust := Vector3.ZERO
 	# only correct X and Y axes (lateral drift), Z handled separately in missile_thrust
@@ -449,11 +484,11 @@ func compute_strafe_thrust() -> void:
 		final_thrust[axis] = -sign(local_velocity[axis])
 
 	var _hide: bool = Vector2(local_velocity.x, local_velocity.y).length() < 2.0
-	missile_thrust(final_thrust, true, _hide)
+	_missile_thrust(final_thrust, true, _hide)
 
 
 ##Computes the necessary rotation forces to face the desired direction.
-func compute_rotation_thrust() -> void:
+func _compute_rotation_thrust() -> void:
 	if no_target or !can_maneuver:
 		return
 
@@ -469,7 +504,7 @@ func compute_rotation_thrust() -> void:
 			up = basis.x
 
 		var to_target_quat: Quaternion = Basis.looking_at(look_dir, up).get_rotation_quaternion()
-		missile_force_rotation(to_target_quat)
+		_missile_force_rotation(to_target_quat)
 		return
 
 	var rotation_axis   : Vector3 = rotation_error / error_angle
@@ -483,11 +518,11 @@ func compute_rotation_thrust() -> void:
 		final_torque = rotation_axis
 
 	var _hide := final_torque.length() < 0.2
-	missile_rotation(final_torque, false, false, _hide)
+	_missile_rotation(final_torque, false, false, _hide)
 
 
 ##Updates target position, target velocity, and whether the missile is facing the target.
-func compute_target_position(_delta: float) -> void:
+func _compute_target_position(_delta: float) -> void:
 	if !target:
 		no_target = true
 		return
@@ -507,7 +542,7 @@ func compute_target_position(_delta: float) -> void:
 		no_target = true
 
 ##Computes the PN intercept point: where the target will be when the missile arrives.
-func compute_pn_intercept_point() -> void:
+func _compute_pn_intercept_point() -> void:
 	var los            : Vector3 = target_position - global_position
 	var range_to_target: float   = los.length()
 	if range_to_target < 2.0:
@@ -524,7 +559,7 @@ func compute_pn_intercept_point() -> void:
 	PN_aim_point = target_position + target_velocity * time_to_intercept
 
 ##Calculates, based on what's enabled and not, the final damage and piercing values.
-func compute_damage_and_penetration() -> void:
+func _compute_damage_and_penetration() -> void:
 	var sub_final_damage : float = base_damage
 	var velocity : float
 	if damage_falloff_speed:
@@ -545,7 +580,7 @@ func compute_damage_and_penetration() -> void:
 
 
 ##Checks if anything is in the proximity fuze's radius. Acts accordingly
-func compute_proximity_fuse() -> void:
+func _compute_proximity_fuse() -> void:
 	if !proximity_enabled or !armed:
 		return
 	fuse_sphere.transform = Transform3D(global_transform.basis * fuse_basis_offset, global_transform.origin)
@@ -559,7 +594,7 @@ func compute_proximity_fuse() -> void:
 				
 				if collision_check.check_hit(2.0):
 					return
-				missile_impact([target], global_position, true)
+				_missile_impact([target], global_position, true)
 				
 		return
 	
@@ -602,7 +637,7 @@ func get_rotation_error() -> Vector3:
 
 ##Applies thruster visibility changes only when state actually changed.
 ##thruster_to_activate is always reset here so stale flags don't persist across avionics ticks.
-func missile_thruster_set_visibility() -> void:
+func _missile_thruster_set_visibility() -> void:
 	if hide_RCS or RCS_deleted:
 		return
 	for i: int in all_thrusters.size():
@@ -619,7 +654,7 @@ func missile_thruster_set_visibility() -> void:
 
 ##Applies physics forces based on the supplied direction. Also flags which RCS thrusters to show.
 ##Uses _cached_inv_basis — must be updated before calling.
-func missile_thrust(direction: Vector3 = Vector3.ZERO, reset: bool = false, _hide: bool = false) -> void:
+func _missile_thrust(direction: Vector3 = Vector3.ZERO, reset: bool = false, _hide: bool = false) -> void:
 	if reset:
 		thruster_to_activate.fill(false)
 
@@ -659,14 +694,14 @@ func missile_thrust(direction: Vector3 = Vector3.ZERO, reset: bool = false, _hid
 
 
 ##Snaps the missile toward the supplied quaternion via slerp.
-func missile_force_rotation(face: Quaternion, weight: float = 20.0) -> void:
+func _missile_force_rotation(face: Quaternion, weight: float = 20.0) -> void:
 	var current_rotation: Quaternion = basis.get_rotation_quaternion().normalized()
 	current_rotation = current_rotation.slerp(face, 0.5 * get_physics_process_delta_time() * weight)
 	basis = Basis(current_rotation)
 
 
 ##Applies torque based on the supplied rotation direction. Also flags which RCS thrusters to show.
-func missile_rotation(direction: Vector3 = Vector3.ZERO, reset: bool = true, visual_only: bool = false, _hide: bool = false) -> void:
+func _missile_rotation(direction: Vector3 = Vector3.ZERO, reset: bool = true, visual_only: bool = false, _hide: bool = false) -> void:
 	if reset:
 		thruster_to_activate.fill(false)
 
@@ -704,7 +739,7 @@ func missile_rotation(direction: Vector3 = Vector3.ZERO, reset: bool = true, vis
 
 
 ##Logic for what happens when the missile collides with something.
-func missile_impact(colliders: Array[Node3D], location : Vector3 = global_position, is_proximity : bool = false) -> void:
+func _missile_impact(colliders: Array[Node3D], location : Vector3 = global_position, is_proximity : bool = false) -> void:
 	if hit_target:
 		return
 	elif !armed:
@@ -718,7 +753,7 @@ func missile_impact(colliders: Array[Node3D], location : Vector3 = global_positi
 	freeze = true
 	#print("HIT!!!")
 	if !is_proximity:
-		damage_ship(colliders[0])
+		_damage_ship(colliders[0])
 		$TrailBoom.local_coords = true
 		global_position = location
 		if performance_level <= 2 or exploding_missiles < 50:
@@ -732,7 +767,7 @@ func missile_impact(colliders: Array[Node3D], location : Vector3 = global_positi
 		begin_countdown.emit(colliders[0])
 	else:
 		for x in colliders:
-			damage_ship(x)
+			_damage_ship(x)
 		$TrailBoom.reparent_to_root = true
 		$TrailBoom.time = 1.0
 		if performance_level <= 2 or exploding_missiles < 50:
@@ -758,22 +793,27 @@ func missile_impact(colliders: Array[Node3D], location : Vector3 = global_positi
 	
 	await get_tree().create_timer(1.5).timeout
 	queue_free()
+	
+func take_damage(damage : float) -> void:
+	health -= damage
+	if health <= 0:
+		_missile_impact([self], global_position, true)
 
-func damage_ship(collider: Node3D) -> void:
+func _damage_ship(collider: Node3D) -> void:
 	var armor_hardness : float = 1.0
 	var final_final_damage :float = final_damage
-	var collider_hard = collider.get(&"armor_hardness")
-	var parent_hard = collider.get_parent().get_parent().get(&"armor_hardness")
+	var collider_hard = collider.get(variable_armor_hardness)
+	var parent_hard = collider.get_parent().get_parent().get(variable_armor_hardness)
 	
 	#Deal damage based off hardness if the target has it.
 	if collider_hard or parent_hard:
 		armor_hardness = collider.armor_hardness as float if collider_hard else parent_hard as float
 		final_final_damage = final_final_damage * (armor_piercing/armor_hardness)
 		print("final damage is ", final_final_damage)
-	if collider.has_method(&"TakeDamage"):
-		collider.TakeDamage(final_damage)
+	if collider.has_method(method_deal_damage):
+		collider.call(method_deal_damage, final_final_damage)
 
-func missile_LOD() -> void:
+func _missile_LOD() -> void:
 	var dist_cam := _distance_to_cam()
 	var far      := dist_cam > PERFORMANCE_POLL_DISTANCE_FAR
 	$"missile final_001".visible = !far
@@ -843,7 +883,7 @@ func _distance_to_cam() -> float:
 
 
 ##Calculates performance level and avionics tick ratio for this missile instance.
-func compute_tick_avionics_ratio() -> void:
+func _compute_tick_avionics_ratio() -> void:
 	_cached_dist_to_target = target_position.distance_to(global_position)
 	var distance           := _cached_dist_to_target
 	#print(distance)
@@ -877,7 +917,7 @@ func compute_tick_avionics_ratio() -> void:
 
 
 ##Disables RCS visuals/audio when too many missiles are on screen or missile is too far.
-func allow_RCS() -> void:
+func _allow_RCS() -> void:
 	performance_RCS_disabled = (
 		RCS_instance_count > PERFORMANCE_RCS_MAX_INSTANCES
 		or _distance_to_cam() > PERFORMANCE_RCS_DISTANCE_MAX
@@ -887,16 +927,16 @@ func allow_RCS() -> void:
 
 ##Called when the ShapeCast detects a body.
 func _on_impactcheck_body_hit(collider: Node3D, location : Vector3) -> void:
-	missile_impact([collider], location)
+	_missile_impact([collider], location)
 	#print("HIT")
 
 
 ##Called when the RigidBody itself enters a body (backup collision path).
 func _on_body_entered(body: Node) -> void:
-	missile_impact([body as Node3D], body.global_position)
+	_missile_impact([body as Node3D], body.global_position)
 
 func _on_proximityfuze_body_entered(body: Node3D) -> void:
-	missile_impact([body], body.global_position, true)
+	_missile_impact([body], body.global_position, true)
 
 func _exit_tree() -> void:
 	if hit_target:

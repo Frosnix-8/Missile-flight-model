@@ -264,7 +264,6 @@ angular_damp_mode = 1
 angular_damp = 1.0
 script = ExtResource("1_mvhaw")
 unlimited_fuel = true
-launch_speed = 100.0
 linear_agility = 412.73
 forward_acceleration = 200.0
 angular_agility = 2.718
