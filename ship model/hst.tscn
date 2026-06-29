@@ -1,11 +1,23 @@
 [gd_scene format=3 uid="uid://dgwvyqqag471x"]
 
 [ext_resource type="PackedScene" uid="uid://c7chkjgoyiwpr" path="res://ship model/HST-80.glb" id="1_flrvv"]
+[ext_resource type="AudioStream" uid="uid://bxqved07hjvxe" path="res://other/Man screaming sound effect _ what is sound_ _ scream 1 #scream #meme 4.mp3" id="2_ynvi5"]
 
 [sub_resource type="GDScript" id="GDScript_p4j0i"]
 resource_name = "Ship"
 script/source = "extends Node3D
-var armor_hardness := 40
+@export var armor_hardness := 40
+@export var health := 1500
+func TakeDamage(damage : float) -> void:
+	print(\"HIT!!!\")
+	$AudioStreamPlayer3D.play(1.25)
+	health -= damage
+	if health <= 0:
+		$AudioStreamPlayer3D.pitch_scale = 0.4
+		$AudioStreamPlayer3D.play(1.25)
+		print(\"DIEDDDDDD\")
+		await get_tree().create_timer(3.0).timeout
+		queue_free()
 "
 
 [sub_resource type="ConvexPolygonShape3D" id="ConvexPolygonShape3D_flrvv"]
@@ -57,9 +69,9 @@ func _process(delta: float) -> void:
 	var input = Input.get_vector(\"ui_left\", \"ui_right\",\"ui_up\", \"ui_down\" )
 	if input:
 		position += basis * Vector3(input.x,0,input.y) * delta * 10
-	if Input.is_action_pressed(\"ui_accept\"):
+	if Input.is_action_just_pressed(\"ui_accept\"):
 		var new_missile : Missile_Guided = missile.instantiate()
-		new_missile.target = get_node(\"../../Collection 3\")
+		new_missile.target = get_node_or_null(\"../../Collection 3\")
 		new_missile.owner_ship = get_parent()
 		get_parent().get_parent().add_child(new_missile)
 		new_missile.global_position = Vector3(107.86, -5, 0)
@@ -126,3 +138,8 @@ transform = Transform3D(-4.3711385e-08, 0, -0.99999994, 0, 1, 0, 0.99999994, 0, 
 [node name="Camera3D" type="Camera3D" parent="." index="5" unique_id=2139534552]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0727826, -25.747559)
 script = SubResource("GDScript_flrvv")
+
+[node name="AudioStreamPlayer3D" type="AudioStreamPlayer3D" parent="." index="6" unique_id=1402020002]
+stream = ExtResource("2_ynvi5")
+unit_size = 56.62
+max_polyphony = 15

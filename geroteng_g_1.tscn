@@ -247,7 +247,7 @@ gravity = Vector3(0, 0, 0)
 damping_max = 1.0400001
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_m3eeq"]
-lifetime_randomness = 0.26
+lifetime_randomness = 0.81
 particle_flag_align_y = true
 direction = Vector3(0, 0, -1)
 spread = 4.534
@@ -264,9 +264,12 @@ angular_damp_mode = 1
 angular_damp = 1.0
 script = ExtResource("1_mvhaw")
 unlimited_fuel = true
+method_deal_damage = &"takedamage"
+launch_speed = 200.0
 linear_agility = 412.73
 forward_acceleration = 200.0
 angular_agility = 2.718
+proximity_fuse_only_target = false
 proximity_fuse_radius = 20.23
 main_thrust_volume_db = -8.995
 main_thrust_pitch_scale = 2.125
@@ -319,32 +322,32 @@ script = ExtResource("4_p4j0i")
 time = 6.98
 
 [node name="ThrustEffect" parent="." unique_id=1201444138 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(-6.504255e-08, 0, 1.022, 0, 1.022, 0, -1.488, 0, -4.4673037e-08, 0, 0, 2.5961144)
+transform = Transform3D(-1.0307146e-07, 0, 1.619, 0, 1.619, 0, -2.358, 0, -7.0768735e-08, 0, 0, 3.7185173)
 constant_thrust = true
 
 [node name="ThrustEffect2" parent="." unique_id=1370176058 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(1.5935116e-15, -4.9175313e-08, 1.125, -0.834, -4.9175313e-08, 0, 3.6455297e-08, -1.125, -4.9175313e-08, 0, 0.82139385, -1.3612202)
+transform = Transform3D(2.7972435e-15, -8.650483e-08, 1.979, -1.464, -8.650483e-08, 0, 6.3993475e-08, -1.979, -8.650483e-08, 0, 1.2635514, -1.3612202)
 
 [node name="ThrustEffect5" parent="." unique_id=1019255739 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(1.5935112e-15, 4.9175306e-08, 1.1249999, 0.834, -4.917531e-08, 3.5495345e-23, 3.6455294e-08, 1.1249999, -4.9175306e-08, 0, -0.8089545, -1.3612202)
+transform = Transform3D(2.7972429e-15, 8.650483e-08, 1.979, 1.464, -8.650483e-08, 8.074529e-22, 6.3993475e-08, 1.979, -8.650483e-08, 0, -1.2456414, -1.3612202)
 
 [node name="ThrustEffect4" parent="." unique_id=1922949306 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(1.5935114e-15, 4.9175313e-08, 1.125, 0.834, -4.9175313e-08, 3.2800587e-22, 3.6455297e-08, 1.125, -4.9175313e-08, 0, -0.81515676, 1.0185145)
+transform = Transform3D(2.7972435e-15, 8.650483e-08, 1.979, 1.464, -8.650483e-08, 2.0449249e-22, 6.3993475e-08, 1.979, -8.650483e-08, 0, -1.2518437, 1.0185145)
 
 [node name="ThrustEffect3" parent="." unique_id=510447756 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(1.5935116e-15, -4.9175313e-08, 1.125, -0.834, -4.9175313e-08, 4.1553002e-23, 3.6455297e-08, -1.125, -4.9175313e-08, 0, 0.80295146, 1.0189396)
+transform = Transform3D(2.7972435e-15, -8.650483e-08, 1.979, -1.464, -8.650483e-08, 7.3096344e-23, 6.3993475e-08, -1.979, -8.650483e-08, 0, 1.245109, 1.0189396)
 
 [node name="ThrustEffect6" parent="." unique_id=178567755 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(0.834, 1.4752594e-07, 6.4485635e-15, 0, -4.9175313e-08, 1.125, 1.093659e-07, -1.125, -4.9175313e-08, -0.8267522, -8.576022e-05, -1.3612204)
+transform = Transform3D(1.464, 2.5951454e-07, 1.134374e-14, 0, -8.650483e-08, 1.979, 1.9198042e-07, -1.979, -8.650483e-08, -1.2545283, -8.576022e-05, -1.3612204)
 
 [node name="ThrustEffect7" parent="." unique_id=325359602 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(-0.834, -1.6987028e-07, -7.425265e-15, 0, -4.9175313e-08, 1.125, -1.259305e-07, 1.125, 4.9175313e-08, 0.79456323, -8.569518e-05, -1.3612202)
+transform = Transform3D(-1.464, -2.9882068e-07, -1.3061867e-14, 0, -8.650483e-08, 1.979, -2.2105785e-07, 1.979, 8.650483e-08, 1.2710354, -8.569518e-05, -1.3612202)
 
 [node name="ThrustEffect8" parent="." unique_id=563624523 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(-0.834, -1.6987028e-07, -7.4252645e-15, -4.47395e-22, -4.9175306e-08, 1.1249999, -1.259305e-07, 1.1249999, 4.9175306e-08, 0.83167166, -8.560315e-05, 1.0185146)
+transform = Transform3D(-1.464, -2.9882068e-07, -1.3061867e-14, 0, -8.650483e-08, 1.979, -2.2105785e-07, 1.979, 8.650483e-08, 1.3081439, -8.560315e-05, 1.0185146)
 
 [node name="ThrustEffect9" parent="." unique_id=886242152 instance=ExtResource("4_iwfhy")]
-transform = Transform3D(0.834, 1.4752594e-07, 6.4485635e-15, 0, -4.9175313e-08, 1.125, 1.093659e-07, -1.125, -4.9175313e-08, -0.8378498, -8.5668165e-05, 1.0189395)
+transform = Transform3D(1.464, 2.5951454e-07, 1.134374e-14, 0, -8.650483e-08, 1.979, 1.9198042e-07, -1.979, -8.650483e-08, -1.2656258, -8.5668165e-05, 1.0189395)
 
 [node name="RCS" type="AudioStreamPlayer3D" parent="." unique_id=1796765180]
 stream = ExtResource("5_iwfhy")

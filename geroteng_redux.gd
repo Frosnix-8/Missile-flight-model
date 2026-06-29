@@ -60,14 +60,20 @@ var this_id := 0
 
 #region track-homing
 @export_category("Internode methods")
-##Method attempted on the target when damage is dealt, emitted via direct method call. Expects one damage argument. Leave empty to ignore.
+##Method attempted on the target when damage is dealt, emitted via direct method call. Expects one float damage argument. Leave empty to ignore. (missile will not deal damage)
 @export var method_deal_damage : StringName = &"TakeDamage"
 ##Signal Method attempted on the target when tracked, expects 1: Node3D that designates ID of the tracking missile; 2: tracking type of the missile (idk). I'll let you do handle this. Leave empty to ignore.
 ##the missile does not support signals for this, as only one target can be tracked at once.
 @export var method_warn_target : StringName = &"warning_missile_track"
 var target_can_be_warned := false
+
+##Method attempted on the owner when launched, which updates what data about the missile the owner has. (Useful for semi-active missiles)
+##Expects method to have args 1: Node3D = self ; 2: Node3D = target
+@export var method_inform_owner : StringName = &"missile_inform"
+var owner_can_be_informed : bool = false
 ##Variable that the missile searches on targets if armor piercing is used.
 @export var variable_armor_hardness : StringName = &"armor_hardness"
+
 
 
 @export_category("Missile Homing")
@@ -166,7 +172,7 @@ var armed        := false
 @export var base_damage := 60
 ##damage after computing falloff and other stuff.
 var final_damage : int
-##Armor penetration of the missile. I don't know how to implement something with this yet, but it's here just in case.
+##Armor penetration of the missile. I don't know how to implement something with this yet, but it's here just in case. SET TO -1 TO DISABLE 
 @export var armor_piercing := 60
 ##AP after computing falloff.
 var final_armor_piercing : int
@@ -217,6 +223,8 @@ var fuse_sphere :PhysicsShapeQueryParameters3D
 #endregion
 #region Audio Visual
 @export_category("Visual Parameters")
+##Whether the missile's mesh should expand with distance for visual consistency.
+@export var expand_mesh_with_distance := true
 ##Disables all visual and auditive RCS features. Does not disable strafing.
 @export var hide_RCS    := false
 var RCS_deleted := false
@@ -224,6 +232,7 @@ var RCS_deleted := false
 @export var hide_trail  := false
 ##Hides particles. Slight performance boost.
 @export var hide_particles := false
+
 
 @export_category("Audio Parameters")
 ##Volume variation in dB of the main thrusters.
@@ -292,10 +301,11 @@ func _ready() -> void:
 	this_id = instance_count
 	if this_id > float(PERFORMANCE_MESH_INSTANCE_COUNT) / 100:
 		textmesh.queue_free()
-
-	if target.has_method(method_warn_target):
+	
+	if target and target.has_method(method_warn_target):
 		target_can_be_warned = true
-		
+	if owner_ship and owner_ship.has_method(method_inform_owner):
+		owner_can_be_informed = true
 	
 
 	all_thrusters.assign([
@@ -433,6 +443,12 @@ func _physics_process(delta: float) -> void:
 	collision_check.target_position = collision_check.to_local(linear_velocity) * delta 
 	#$"missile final_001".scale = max(1.0, _distance_to_cam()) * 0.01 * Vector3.ONE + Vector3.ONE
 
+func _internode_data() -> void:
+	if target_can_be_warned:
+		target.call(method_warn_target, self, track_mode)
+	if owner_can_be_informed:
+		owner_ship.call(method_inform_owner, self, target)
+	
 
 ##Handles fuel depletion: frees thrusters, explodes or drifts based on settings.
 func _on_fuel_depleted() -> void:
@@ -440,7 +456,7 @@ func _on_fuel_depleted() -> void:
 		x.queue_free()
 	$MAINTHRUST.stop()
 	if explode_on_fuel_loss:
-		_missile_impact([self], global_position)
+		_missile_impact_single(self, global_position)
 	else:
 		set_physics_process(false)
 		await get_tree().create_timer(10.0).timeout
@@ -594,20 +610,34 @@ func _compute_proximity_fuse() -> void:
 				
 				if collision_check.check_hit(2.0):
 					return
-				_missile_impact([target], global_position, true)
+				_missile_impact_single(target, global_position, true)
 				
 		return
+	else:
+		var hitt : Array[Node3D] = []
+		for hit in hits:
+			hitt.append(hit.collider)
+		_missile_impact_multiple(hitt, global_position, true)
 	
-	#var colliders : Array[Node3D]
-	#for x in hits:
-		#colliders.append(x.collider)
-	#missile_impact(colliders, global_position, true)
-	
-func is_in_front_of_missile(node: Node3D) -> bool:
+##Checks if the missile is facing towards the target node (default is target) within the specified angle (angle from target vector and missile facing vector.)
+func is_in_front_of_missile(node: Node3D = target, max_angle : float = 0.5) -> bool:
+	if !node:
+		return false
 	var to_target = (node.global_position - global_position).normalized()
 	var forward = -global_transform.basis.z
+	if max_angle != 0.5:
+		max_angle = cos(max_angle)
+	return forward.dot(to_target) > max_angle
 
-	return forward.dot(to_target) > 0.5
+##Checks if the missile's velocity is towards the specified node, defaults to the target. Set max angle in radians (converted to cos) (angle from target vector and missile facing vector.)
+func is_moving_to_target(node: Node3D = target, max_angle : float = 0.5) -> bool:
+	if !node: 
+		return false
+	var to_target = (node.global_position - global_position).normalized()
+	var forward = linear_velocity.normalized()
+	if max_angle != 0.5:
+		max_angle = cos(max_angle)
+	return forward.dot(to_target) > max_angle
 	
 
 ##Returns a vector pointing from the missile to the target.
@@ -737,9 +767,12 @@ func _missile_rotation(direction: Vector3 = Vector3.ZERO, reset: bool = true, vi
 
 	apply_torque(basis * direction * angular_agility * temporary_multiplier * current_avionic_tick_ratio)
 
-
+func _missile_impact_single(collider : Node3D, location : Vector3 = global_position, is_proximity : bool = false) -> void:
+	var array : Array[Node3D]
+	array.append(collider)
+	_missile_impact_multiple(array, location, is_proximity)
 ##Logic for what happens when the missile collides with something.
-func _missile_impact(colliders: Array[Node3D], location : Vector3 = global_position, is_proximity : bool = false) -> void:
+func _missile_impact_multiple(colliders: Array[Node3D], location : Vector3 = global_position, is_proximity : bool = false) -> void:
 	if hit_target:
 		return
 	elif !armed:
@@ -753,7 +786,8 @@ func _missile_impact(colliders: Array[Node3D], location : Vector3 = global_posit
 	freeze = true
 	#print("HIT!!!")
 	if !is_proximity:
-		_damage_ship(colliders[0])
+		for x in colliders:
+			_damage_ship(x)
 		$TrailBoom.local_coords = true
 		global_position = location
 		if performance_level <= 2 or exploding_missiles < 50:
@@ -793,25 +827,38 @@ func _missile_impact(colliders: Array[Node3D], location : Vector3 = global_posit
 	
 	await get_tree().create_timer(1.5).timeout
 	queue_free()
-	
+
+##Deals X damage to the missile.
 func take_damage(damage : float) -> void:
 	health -= damage
 	if health <= 0:
-		_missile_impact([self], global_position, true)
+		_missile_impact_single(self, global_position, true)
+	
+##Deals X damage to the missile.
+func TakeDamage(damage: float) -> void:
+	take_damage(damage)
 
+##Deals damage to the ship.
 func _damage_ship(collider: Node3D) -> void:
+	print("attempting to deal damage to collider.")
 	var armor_hardness : float = 1.0
 	var final_final_damage :float = final_damage
-	var collider_hard = collider.get(variable_armor_hardness)
-	var parent_hard = collider.get_parent().get_parent().get(variable_armor_hardness)
-	
-	#Deal damage based off hardness if the target has it.
-	if collider_hard or parent_hard:
-		armor_hardness = collider.armor_hardness as float if collider_hard else parent_hard as float
-		final_final_damage = final_final_damage * (armor_piercing/armor_hardness)
-		print("final damage is ", final_final_damage)
+	var parpar := collider.get_parent().get_parent()
+	if armor_piercing > 0:
+		var collider_hard = collider.get(variable_armor_hardness)
+		var parent_hard = parpar.get(variable_armor_hardness)
+		
+		#Deal damage based off hardness if the target has it.
+		if collider_hard or parent_hard:
+			armor_hardness = collider.armor_hardness as float if collider_hard else parent_hard as float
+			final_final_damage = final_final_damage * (armor_piercing/armor_hardness)
+			print("final damage is ", final_final_damage)
 	if collider.has_method(method_deal_damage):
 		collider.call(method_deal_damage, final_final_damage)
+	elif parpar.has_method(method_deal_damage):
+		parpar.call(method_deal_damage, final_final_damage)
+	else:
+		push_warning("Failed to find method ", method_deal_damage, " on collider.")
 
 func _missile_LOD() -> void:
 	var dist_cam := _distance_to_cam()
@@ -927,16 +974,16 @@ func _allow_RCS() -> void:
 
 ##Called when the ShapeCast detects a body.
 func _on_impactcheck_body_hit(collider: Node3D, location : Vector3) -> void:
-	_missile_impact([collider], location)
+	_missile_impact_single(collider, location)
 	#print("HIT")
 
 
 ##Called when the RigidBody itself enters a body (backup collision path).
 func _on_body_entered(body: Node) -> void:
-	_missile_impact([body as Node3D], body.global_position)
+	_missile_impact_single(body as Node3D, body.global_position)
 
 func _on_proximityfuze_body_entered(body: Node3D) -> void:
-	_missile_impact([body], body.global_position, true)
+	_missile_impact_single(body, body.global_position, true)
 
 func _exit_tree() -> void:
 	if hit_target:
