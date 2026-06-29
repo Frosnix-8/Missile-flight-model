@@ -255,20 +255,22 @@ initial_velocity_min = 97.6
 initial_velocity_max = 158.84999
 gravity = Vector3(0, 0, 0)
 
-[node name="Geroteng G-1" type="RigidBody3D" unique_id=1758481796]
+[node name="Geroteng G-1" type="RigidBody3D" unique_id=1758481796 node_paths=PackedStringArray("meshes", "LOD")]
 mass = 85.0
 inertia = Vector3(1, 1, 1)
-continuous_cd = true
 linear_damp_mode = 1
 angular_damp_mode = 1
 angular_damp = 1.0
 script = ExtResource("1_0fnt5")
 unlimited_fuel = true
+print_data = true
 launch_speed = 200.0
 linear_agility = 412.73
 forward_acceleration = 200.0
 angular_agility = 2.718
 proximity_fuse_radius = 20.23
+meshes = [NodePath("missile final_001"), NodePath("Text_008")]
+LOD = [NodePath("LOD")]
 main_thrust_volume_db = -8.995
 main_thrust_pitch_scale = 2.125
 thrust_pitch_scale = 1.025

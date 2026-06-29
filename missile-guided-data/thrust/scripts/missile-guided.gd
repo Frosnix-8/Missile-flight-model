@@ -26,21 +26,24 @@ static var exploding_missiles : int = 0
 ##Past this amount of RCS missiles, RCS will no longer render.
 const PERFORMANCE_RCS_MAX_INSTANCES := 20
 ##Distance past which RCS will not render.
-const PERFORMANCE_RCS_DISTANCE_MAX := 500
+const PERFORMANCE_RCS_DISTANCE_MAX := 500.0
 ##Distance past which RCS no longer plays audio.
-const PERFORMANCE_RCS_AUDIO_DISTANCE_MAX := 500
+const PERFORMANCE_RCS_AUDIO_DISTANCE_MAX := 500.0
 ##Distance from target beyond which the performance level is increased.
 ##higher levels mean the missile calculates trajectories less often.
-const PERFORMANCE_POLL_DISTANCE := 400
+const PERFORMANCE_POLL_DISTANCE := 400.0
 ##Distance from target beyond which performance level is increased again.
-const PERFORMANCE_POLL_DISTANCE_FAR := 800
+const PERFORMANCE_POLL_DISTANCE_FAR := 800.0
 ##instance count beyond which performance level is increased.
 const PERFORMANCE_POLL_INSTANCE_COUNT := 40
 ##instance count beyond which performance level is increased again.
 const PERFORMANCE_POLL_INSTANCE_COUNT_FAR := 70
 ##instance count beyond which performance level is increased more.
 const PERFORMANCE_POLL_INSTANCE_COUNT_EXTREME := 100
+##instance count beyond which no meshes are rendered.
 const PERFORMANCE_MESH_INSTANCE_COUNT := 200
+##instance count beyond which only the main mesh is rendered.
+const PERFORMANCE_MESH_MINOR_INSTANCE_COUNT := 20
 ##whether RCS is disabled for performance reasons.
 var performance_RCS_disabled := false
 #endregion
@@ -57,6 +60,7 @@ var this_id := 0
 @export var unlimited_fuel := false
 ##Disables all missile strafing. Without linear velocity damping, makes the missile uncontrollable.
 @export var disable_strafe := false
+@export var print_data := false
 
 #region track-homing
 @export_category("Internode methods")
@@ -113,7 +117,7 @@ enum trackmodes {
 @onready var Thrust_right_aft : Missile_thruster = $ThrustEffect9
 @onready var Thrust_up_aft    : Missile_thruster = $ThrustEffect4
 @onready var Thrust_down_aft  : Missile_thruster = $ThrustEffect3
-@onready var textmesh : MeshInstance3D = $Text_008
+
 enum thrusters {
 	FORWARD,
 	DOWN,
@@ -225,6 +229,12 @@ var fuse_sphere :PhysicsShapeQueryParameters3D
 #endregion
 #region Audio Visual
 @export_category("Visual Parameters")
+##meshes of the missile. if the minor mesh performance instance count is exceeded, all but the first mesh are deleted on the instance.
+@export var meshes : Array[MeshInstance3D] = []
+##LOD meshes, not very useful.
+@export var LOD : Array[MeshInstance3D] = []
+@export var direct_hit_particles : Array[GPUParticles3D] = []
+@export var proximity_hit_particles : Array[GPUParticles3D] = []
 ##Whether the missile's mesh should expand with distance for visual consistency.
 @export var expand_mesh_with_distance := true
 ##Disables all visual and auditive RCS features. Does not disable strafing.
@@ -301,8 +311,7 @@ func _ready() -> void:
 	max_straight_line_speed = max_straight_line_speed * max_straight_line_speed
 	instance_count += 1
 	this_id = instance_count
-	if this_id > float(PERFORMANCE_MESH_INSTANCE_COUNT) / 100:
-		textmesh.queue_free()
+	
 	
 	if target and target.has_method(method_warn_target):
 		target_can_be_warned = true
@@ -421,7 +430,11 @@ func _physics_process(delta: float) -> void:
 		_missile_LOD()
 		if target_can_be_warned:
 			target.call(method_warn_target, self, track_mode)
-		#print(performance_level)
+		if owner_can_be_informed:
+			owner.call(method_inform_owner, self, target)
+		if print_data:
+			print(performance_level)
+			
 	if tick_avionics % 6 == 0:
 		_compute_damage_and_penetration()
 	if thrust_time <= 0 and (!unlimited_fuel or no_target):
@@ -443,7 +456,10 @@ func _physics_process(delta: float) -> void:
 	_rcs_audio()
 
 	collision_check.target_position = collision_check.to_local(linear_velocity) * delta 
-	#$"missile final_001".scale = max(1.0, _distance_to_cam()) * 0.01 * Vector3.ONE + Vector3.ONE
+	if expand_mesh_with_distance:
+		for x in meshes:
+			var new_scale :Vector3= max(1.0, _distance_to_cam()) * 0.01 * Vector3.ONE + Vector3.ONE
+			x.scale = new_scale
 
 func _internode_data() -> void:
 	if target_can_be_warned:
@@ -798,7 +814,7 @@ func _missile_impact_multiple(colliders: Array[Node3D], location : Vector3 = glo
 			_damage_ship(x)
 		$TrailBoom.local_coords = true
 		global_position = location
-		if performance_level <= 2 or exploding_missiles < 50:
+		if performance_level <= 2 or exploding_missiles < 30:
 			$impact.emitting = !hide_particles
 			$Backboom.emitting = !hide_particles
 			$TrailBoom.emitting = !hide_particles
@@ -812,7 +828,7 @@ func _missile_impact_multiple(colliders: Array[Node3D], location : Vector3 = glo
 			_damage_ship(x)
 		$TrailBoom.reparent_to_root = true
 		$TrailBoom.time = 1.0
-		if performance_level <= 2 or exploding_missiles < 50:
+		if performance_level <= 2 or exploding_missiles < 30:
 			$Proximityboom.emitting = !hide_particles
 		begin_countdown.emit(null)
 	
@@ -827,9 +843,10 @@ func _missile_impact_multiple(colliders: Array[Node3D], location : Vector3 = glo
 		x.queue_free()
 	audio_main_thrust.queue_free()
 	audio_RCS.queue_free()
-	$LOD.queue_free()
-	$"missile final_001".queue_free()
-	if textmesh: textmesh.queue_free()
+	for x in LOD:
+		x.queue_free()
+	for x in meshes:
+		x.queue_free()
 	$impactcheck.queue_free()
 	
 	
@@ -869,18 +886,25 @@ func _damage_ship(collider: Node3D) -> void:
 func _missile_LOD() -> void:
 	var dist_cam := _distance_to_cam()
 	var far      := dist_cam > PERFORMANCE_POLL_DISTANCE_FAR
-	$"missile final_001".visible = !far
-	if textmesh: textmesh.visible= !far
-	$LOD.visible                 = far
+	for x in meshes:
+		x.visible = !far
+	#$"missile final_001".visible = !far
+	#if textmesh: textmesh.visible= !far
+	for x in LOD:
+		x.visible = far
 	#$TrailBoom.emitting          = !far
 	proximity_enabled = dist_cam < 200 if proximity_fuse_mode != proximity.FORCE_DISABLE else false
 	var too_much := instance_count > PERFORMANCE_MESH_INSTANCE_COUNT
-	#$"missile final_001".visible = !too_much
-	#if textmesh: textmesh.visible = !too_much
-	#$LOD.visible = !too_much
+	
+			
 	#if instance_count > PERFORMANCE_POLL_INSTANCE_COUNT and this_id > PERFORMANCE_POLL_INSTANCE_COUNT:
 		#$TrailBoom.emitting = false
-	
+	if this_id > PERFORMANCE_MESH_MINOR_INSTANCE_COUNT:
+		for x in meshes.size():
+			match x:
+				0: continue
+			meshes[x].queue_free()
+			meshes.remove_at(x)
 	#permanently removes RCS if there are too many.
 	if RCS_this_id > PERFORMANCE_POLL_INSTANCE_COUNT:
 		if RCS_deleted:
@@ -912,7 +936,7 @@ func _rcs_audio() -> void:
 	if randi_range(0, 2) != 0:
 		return
 	var dist := _distance_to_cam()
-	if (RCS_instance_count > 20 and RCS_this_id > 20 and dist > 50) or dist > PERFORMANCE_RCS_AUDIO_DISTANCE_MAX:
+	if (RCS_instance_count > PERFORMANCE_RCS_MAX_INSTANCES and RCS_this_id > PERFORMANCE_RCS_MAX_INSTANCES and dist > PERFORMANCE_RCS_AUDIO_DISTANCE_MAX/100) or dist > PERFORMANCE_RCS_AUDIO_DISTANCE_MAX:
 		return
 	audio_RCS.play()
 

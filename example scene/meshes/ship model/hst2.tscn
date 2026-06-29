@@ -281,7 +281,7 @@ func _process(delta: float) -> void:
 	var input = Input.get_vector(\"ui_left\", \"ui_right\",\"ui_up\", \"ui_down\" )
 	if input:
 		position += basis * Vector3(input.x,0,input.y) * delta * 10
-	if Input.is_action_just_pressed(\"ui_accept\"):
+	if Input.is_action_pressed(\"ui_accept\"):
 		var new_missile : Missile_Guided = missile.instantiate()
 		new_missile.target = get_node_or_null(\"../../HST2\")
 		new_missile.owner_ship = get_parent()
