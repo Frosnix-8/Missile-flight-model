@@ -1,0 +1,24 @@
+[gd_scene format=3 uid="uid://c515r8h7q7br8"]
+
+[ext_resource type="Material" uid="uid://be34y8f3d4phf" path="res://missile-guided-data/thrust/thruster-material/hol horse miss ile 2.tres" id="1_8af57"]
+[ext_resource type="Script" uid="uid://cj5ypqe7p652e" path="res://missile-guided-data/thrust/scripts/missile-thrusters.gd" id="2_mc0mf"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_og8ry"]
+material = ExtResource("1_8af57")
+size = Vector2(1.815, 0.225)
+
+[sub_resource type="QuadMesh" id="QuadMesh_522yw"]
+material = ExtResource("1_8af57")
+size = Vector2(1.815, 0.225)
+orientation = 1
+
+[node name="Missile-Thrust" type="MeshInstance3D" unique_id=745290900]
+cast_shadow = 0
+visibility_range_end = 500.0
+mesh = SubResource("QuadMesh_og8ry")
+script = ExtResource("2_mc0mf")
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="." unique_id=1395075210]
+cast_shadow = 0
+visibility_range_end = 500.0
+mesh = SubResource("QuadMesh_522yw")

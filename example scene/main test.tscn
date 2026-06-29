@@ -1,0 +1,46 @@
+[gd_scene format=3 uid="uid://bewifmkf8dkw6"]
+
+[ext_resource type="PackedScene" uid="uid://bh4kymk2b3s3q" path="res://example scene/meshes/ship model/hst2.tscn" id="1_pl5k3"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_e2bt7"]
+
+[sub_resource type="Sky" id="Sky_7eva7"]
+sky_material = SubResource("ProceduralSkyMaterial_e2bt7")
+
+[sub_resource type="Environment" id="Environment_ntarn"]
+background_mode = 2
+sky = SubResource("Sky_7eva7")
+tonemap_mode = 4
+tonemap_exposure = 1.97
+glow_enabled = true
+glow_intensity = 1.68
+glow_strength = 1.08
+volumetric_fog_density = 0.007
+
+[sub_resource type="BoxMesh" id="BoxMesh_dmihs"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_4m83u"]
+
+[node name="Node3D" type="Node3D" unique_id=856839224]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1779876775]
+transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 0, 0)
+shadow_enabled = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1843546918]
+environment = SubResource("Environment_ntarn")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=86400150]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.17243445, -6.2542534, 0)
+mesh = SubResource("BoxMesh_dmihs")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="MeshInstance3D" unique_id=1061029723]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MeshInstance3D/StaticBody3D" unique_id=1088850908]
+shape = SubResource("BoxShape3D_4m83u")
+disabled = true
+
+[node name="HST" parent="." unique_id=860455008 instance=ExtResource("1_pl5k3")]
+transform = Transform3D(-0.3612644, 0, 0.9324634, 0, 1, 0, -0.9324634, 0, -0.3612644, 107.86037, 0.99991226, 0)
+
+[node name="HST2" parent="." unique_id=1677246504 instance=ExtResource("1_pl5k3")]
