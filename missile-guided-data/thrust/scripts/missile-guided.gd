@@ -64,7 +64,9 @@ var this_id := 0
 
 #region track-homing
 @export_category("Internode methods")
-##Method attempted on the target when damage is dealt, emitted via direct method call. Expects one float damage argument and a Node3D argument for itself. Leave empty to ignore. (missile will not deal damage)
+##Method attempted on the target when damage is dealt, emitted via direct method call. Expects one float damage argument and a Node3D argument for a dictionary. Leave empty to ignore. (missile will not deal damage)
+##The dictionary contains 1: missile ID 2: missile current armor piercing 3: missile global position 4: missile global velocity 5: missile damage 6: if the missile hit via proximity fuse.
+##This dictionary can be utilized to calculate module damage using physics queries from the missile's position and velocity.
 @export var method_deal_damage : StringName = &"TakeDamage"
 ##Signal Method attempted on the target when tracked, expects 1: Node3D that designates ID of the tracking missile; 2: tracking type of the missile (idk). I'll let you do handle this. Leave empty to ignore.
 ##the missile does not support signals for this, as only one target can be tracked at once.
@@ -91,6 +93,8 @@ enum chasemodes {
 ##Current pursue mode. PN doesn't always use PN tracking (e.g. when the missile isn't facing the target).
 var current_chase_mode : chasemodes = chase_mode
 
+
+
 @export_category("Missile Tracking")
 ##How the missile tracks targets. Doesn't do anything on its own.
 enum trackmodes {
@@ -104,8 +108,16 @@ enum trackmodes {
 @export var track_mode : trackmodes = trackmodes.PASSIVE_INFRARED
 ##Whether the missile will lose the target if it faces away.
 @export var must_face_target : bool = false
+var current_must_face_target : bool = false
 ##cos of the angle in rads before the missile loses its tracking.
-@export var max_angle_from_target : float = cos(deg_to_rad(60))
+@export var max_angle_from_target : float = cos(deg_to_rad(70))
+var current_max_angle_from_target : float
+##How far the missile needs to be before it cannot track the target. Set negative to ignore.
+@export var max_distance_from_target : float = -1
+##How far the missile needs to be from the owner before it loses control. Set negative to ignore.
+@export var max_distance_from_owner : float = -1
+##Whether the track precision of the missile has been weakened.
+var track_weakened :bool = false
 #endregion
 #region Nodes
 @onready var Thrust_forward   : Missile_thruster = $ThrustEffect
@@ -244,6 +256,7 @@ var RCS_deleted := false
 @export var hide_trail  := false
 ##Hides particles. Slight performance boost.
 @export var hide_particles := false
+var original_mesh_scale := Vector3.ONE
 
 
 @export_category("Audio Parameters")
@@ -263,7 +276,10 @@ var RCS_deleted := false
 #region Targetting
 @export_category("Target")
 ##Debug target. Best assigned via script in real implementations.
-@export var target    : Node3D
+@export var target : Node3D :
+	set(value):
+		target = value
+		no_target = (value == null)
 ##Ship that owns this missile.
 var owner_ship        : Node3D
 
@@ -283,6 +299,15 @@ var hit_target        := false
 #region performance and cache
 ##Physics tick counter, increments each physics frame.
 var tick_avionics     := 0
+##Timer for weakened tracking
+var tick_timer_weakened : int :
+	set(value):
+		tick_timer_weakened = value
+		if tick_timer_weakened < 0: target_track_strengthen()
+var tick_timer_lock_weak : int :
+	set(value):
+		tick_timer_lock_weak = value
+		track_weakened = !(tick_timer_lock_weak < 0)
 ##0 = highest fidelity, higher = less frequent avionics updates.
 var performance_level := 0
 ##Tick ratios for avionics computation. Index = performance level, value = compute every n frames.
@@ -318,7 +343,8 @@ func _ready() -> void:
 	if owner_ship and owner_ship.has_method(method_inform_owner):
 		owner_can_be_informed = true
 	
-
+	original_mesh_scale =meshes[0].scale
+	
 	all_thrusters.assign([
 		Thrust_forward,
 		Thrust_down, Thrust_down_aft,
@@ -357,7 +383,12 @@ func _ready() -> void:
 	audio_main_thrust.pitch_scale *= main_thrust_pitch_scale
 	audio_main_thrust.volume_db   = main_thrust_volume_db
 	$explosion.volume_db      = explosion_volume_db
-
+	
+	current_max_angle_from_target = max_angle_from_target
+	current_must_face_target = must_face_target
+	max_distance_from_owner *= max_distance_from_owner if max_distance_from_owner > 0.0 else 1.0
+	max_distance_from_target *= max_distance_from_target if max_distance_from_target > 0.0 else 1.0
+	
 	angular_agility      *= randf_range(0.9, 1.1)
 	linear_agility       *= randf_range(0.9, 1.1)
 	forward_acceleration *= randf_range(0.9, 1.1)
@@ -367,15 +398,21 @@ func _ready() -> void:
 	
 	
 	await get_tree().physics_frame
+	#launch
 	apply_central_impulse(((basis * Vector3.FORWARD * launch_speed) + velocity_inherited) * mass)
 	await get_tree().create_timer(launch_clear_time).timeout
+	#allow maneuver
 	can_maneuver = true
 	hide_RCS = !show_rcs_later
 	await get_tree().create_timer(max(0.1, arm_time - launch_clear_time)).timeout
+	#allow boom
 	armed = true
+	print("arming!!")
 	_ready_proximity_fuse()
+	$"missile collision".disabled = false
 
 func _ready_proximity_fuse() -> void:
+
 	match proximity_fuse_mode:
 		proximity.FORCE_ENABLE: 
 			proximity_enabled = true
@@ -420,6 +457,8 @@ func ready_launch_parameters(ship_who_launched_the_missile : Node3D, initial_vel
 
 func _physics_process(delta: float) -> void:
 	tick_avionics += 1
+	tick_timer_weakened = tick_timer_weakened - 1
+	tick_timer_lock_weak = tick_timer_lock_weak - 1
 	RCS_audio_queued = false
 	thrust_time -= delta
 	
@@ -458,7 +497,7 @@ func _physics_process(delta: float) -> void:
 	collision_check.target_position = collision_check.to_local(linear_velocity) * delta 
 	if expand_mesh_with_distance:
 		for x in meshes:
-			var new_scale :Vector3= max(1.0, _distance_to_cam()) * 0.01 * Vector3.ONE + Vector3.ONE
+			var new_scale :Vector3= max(1.0, _distance_to_cam()) * 0.01 * Vector3.ONE + original_mesh_scale
 			x.scale = new_scale
 
 func _internode_data() -> void:
@@ -568,9 +607,10 @@ func _compute_target_position(_delta: float) -> void:
 		target_velocity = (target as CharacterBody3D).velocity
 	elif target is RigidBody3D:
 		target_velocity = (target as RigidBody3D).linear_velocity
-
-	is_facing_target = get_position_error().normalized().dot(linear_velocity.normalized()) > 0.1
-	if must_face_target and (-global_basis.z).dot(target_position) <= 0.0:
+		
+	is_facing_target = is_in_front_of_missile(target)
+	
+	if current_must_face_target and is_facing_target:
 		#print(linear_velocity.dot(target_position) <= 0.0, " failed to track, not facing way")
 		target = null
 		no_target = true
@@ -617,11 +657,12 @@ func _compute_damage_and_penetration() -> void:
 func _compute_proximity_fuse() -> void:
 	if !proximity_enabled or !armed:
 		return
+
 	fuse_sphere.transform = Transform3D(global_transform.basis * fuse_basis_offset, global_transform.origin)
 	var hits = get_world_3d().direct_space_state.intersect_shape(fuse_sphere, 10)
 	if hits.size() == 0:
 		return
-	#print(hits)
+
 	if proximity_fuse_only_target:
 		for hit in hits:
 			if target == hit.collider:
@@ -644,7 +685,7 @@ func _compute_proximity_fuse() -> void:
 		_missile_impact_multiple(hitt, global_position, true)
 	
 ##Checks if the missile is facing towards the target node (default is target) within the specified angle in rads. (angle from target vector and missile facing vector.)
-func is_in_front_of_missile(node: Node3D = target, max_angle : float = max_angle_from_target) -> bool:
+func is_in_front_of_missile(node: Node3D = target, max_angle : float = current_max_angle_from_target) -> bool:
 	if !node:
 		return false
 	var to_target = (node.global_position - global_position).normalized()
@@ -654,12 +695,12 @@ func is_in_front_of_missile(node: Node3D = target, max_angle : float = max_angle
 	return forward.dot(to_target) > max_angle
 
 ##Checks if the missile's velocity is towards the specified node, defaults to the target. Set max angle in radians (converted to cos) (angle from target vector and missile facing vector.)
-func is_moving_to_target(node: Node3D = target, max_angle : float = 0.5) -> bool:
+func is_moving_to_target(node: Node3D = target, max_angle : float = current_max_angle_from_target) -> bool:
 	if !node: 
 		return false
 	var to_target = (node.global_position - global_position).normalized()
 	var forward = linear_velocity.normalized()
-	if max_angle != 0.5:
+	if max_angle != current_max_angle_from_target:
 		max_angle = cos(max_angle)
 	return forward.dot(to_target) > max_angle
 	
@@ -811,7 +852,7 @@ func _missile_impact_multiple(colliders: Array[Node3D], location : Vector3 = glo
 	#print("HIT!!!")
 	if !is_proximity:
 		for x in colliders:
-			_damage_ship(x)
+			_damage_ship(x, false)
 		$TrailBoom.local_coords = true
 		global_position = location
 		if performance_level <= 2 or exploding_missiles < 30:
@@ -825,14 +866,17 @@ func _missile_impact_multiple(colliders: Array[Node3D], location : Vector3 = glo
 		begin_countdown.emit(colliders[0])
 	else:
 		for x in colliders:
-			_damage_ship(x)
+			_damage_ship(x, true)
 		$TrailBoom.reparent_to_root = true
 		$TrailBoom.time = 1.0
 		if performance_level <= 2 or exploding_missiles < 30:
 			$Proximityboom.emitting = !hide_particles
 		begin_countdown.emit(null)
-	
+		
 	$explosion.play()
+	
+	if print_data:
+		print("was proximity?", is_proximity)
 	
 	#free stuff
 	for x : Missile_thruster in all_thrusters:
@@ -863,12 +907,33 @@ func take_damage(damage : float) -> void:
 func TakeDamage(damage: float) -> void:
 	take_damage(damage)
 
+##Call to remove the target lock, like when the missile is disrupted idk.
+func target_lock_remove() -> void:
+	target = null
+	no_target = true
+
+##Makes missile lock more fragile: easily loses target. intensity is sensitivity from 0 to 1 (0 is no change, 1 is FACE PERFECTLY THE TARGET) duration is physics frame until it stops.
+func target_lock_weaken(duration : int = 120,intensity: float = 0.5) -> void:
+	tick_timer_lock_weak = duration
+	current_must_face_target = true
+	current_max_angle_from_target = max_angle_from_target + intensity / max_angle_from_target
+
+##makes missile compute less often temporarily. Physics frames.
+func target_track_weaken(duration : int = 240) -> void:
+	track_weakened = true
+	tick_timer_weakened = duration
+	
+
+##Resets lock strength
+func target_track_strengthen() -> void:
+	current_must_face_target = must_face_target
+	current_max_angle_from_target = max_angle_from_target
 ##Deals damage to the ship.
-func _damage_ship(collider: Node3D) -> void:
+func _damage_ship(collider: Node3D, is_proximity : bool) -> void:
 	#print("attempting to deal damage to collider.")
 	var armor_hardness : float = 1.0
 	var final_final_damage :float = final_damage
-
+	
 	if armor_piercing > 0:
 		var collider_hard = collider.get(variable_armor_hardness)
 
@@ -876,10 +941,18 @@ func _damage_ship(collider: Node3D) -> void:
 		#Deal damage based off hardness if the target has it.
 		if collider_hard:
 			armor_hardness = collider.armor_hardness
-			final_final_damage = final_final_damage * (armor_piercing/armor_hardness)
+			final_final_damage = final_final_damage * (final_armor_piercing/armor_hardness)
 			print("final damage is ", final_final_damage)
+	var missile_damage_dictionary : Dictionary = {
+		&"Missile" : self,
+		&"armor piercing": armor_piercing,
+		&"impact_global_position": global_position,
+		&"impact_linear_velocity": linear_velocity.normalized(),
+		&"impact_final_damage": final_final_damage,
+		&"impact_is_proximity": is_proximity
+	}
 	if collider.has_method(method_deal_damage):
-		collider.call(method_deal_damage, final_final_damage, self)
+		collider.call(method_deal_damage, final_final_damage, missile_damage_dictionary)
 	else:
 		push_warning("Failed to find method ", method_deal_damage, " on collider. Is the correct one specified?")
 
@@ -972,7 +1045,8 @@ func _compute_tick_avionics_ratio() -> void:
 	else:
 		new_performance_level = 2
 	
-	
+	if track_weakened:
+		new_performance_level = 2
 
 	## global_performance_level is computed once per 15-tick block, shared across all missiles.
 	if global_performance_level == -1:
@@ -1000,8 +1074,12 @@ func _allow_RCS() -> void:
 		or _distance_to_cam() > PERFORMANCE_RCS_DISTANCE_MAX
 	)
 	
-
-
+func _is_too_far() -> bool:
+	if max_distance_from_owner > 0 and owner_ship and global_position.distance_squared_to(owner_ship.global_position) > max_distance_from_owner:
+		return true
+	if max_distance_from_target > 0 and target and global_position.distance_squared_to(target.global_position) > max_distance_from_target:
+		return true 
+	return false
 ##Called when the ShapeCast detects a body.
 func _on_impactcheck_body_hit(collider: Node3D, location : Vector3) -> void:
 	_missile_impact_single(collider, location)

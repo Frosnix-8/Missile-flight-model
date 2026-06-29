@@ -264,11 +264,15 @@ angular_damp = 1.0
 script = ExtResource("1_0fnt5")
 unlimited_fuel = true
 print_data = true
+chase_mode = 1
 launch_speed = 200.0
+arm_time = 1.0
 linear_agility = 412.73
 forward_acceleration = 200.0
 angular_agility = 2.718
-proximity_fuse_radius = 20.23
+base_damage = 120
+armor_piercing = 70
+proximity_fuse_radius = 10.0
 meshes = [NodePath("missile final_001"), NodePath("Text_008")]
 LOD = [NodePath("LOD")]
 main_thrust_volume_db = -8.995
@@ -433,6 +437,11 @@ process_material = SubResource("ParticleProcessMaterial_m3eeq")
 draw_pass_1 = SubResource("SphereMesh_m3eeq")
 script = ExtResource("4_25age")
 time = 1.1
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1839620749]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.0908799, 0.76067257, 0)
+doppler_tracking = 1
+current = true
 
 [connection signal="begin_countdown" from="." to="VaporTrail" method="on_begin_countdown"]
 [connection signal="begin_countdown" from="." to="Backboom" method="on_begin_countdown"]

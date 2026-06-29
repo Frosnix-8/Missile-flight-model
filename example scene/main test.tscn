@@ -44,6 +44,6 @@ disabled = true
 transform = Transform3D(-0.3612644, 0, 0.9324634, 0, 1, 0, -0.9324634, 0, -0.3612644, 107.86037, 0.99991226, 0)
 
 [node name="HST2" parent="." unique_id=1677246504 instance=ExtResource("1_pl5k3")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -246.84549, 0, 0)
-armor_hardness = 1525
-health = 16885
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -896.11194, 0, 0)
+armor_hardness = 65
+health = 1200
